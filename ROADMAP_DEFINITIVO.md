@@ -640,54 +640,99 @@ feat(accounts): Complete Phase 3 - Account 360° View System (379320fa)
 
 ---
 
-### **FASE 4: LOGÍSTICA COMPLETA** 🚚
+### **FASE 4: LOGÍSTICA COMPLETA + IA FOUNDATION** 🚚🧠
 **Prioridad:** CRÍTICA  
-**Duración:** 3-4 días  
-**Dependencias:** Fase 1 (para auto-órdenes)
+**Duración:** 4.5 días (4 días core + 0.5 día IA prep)  
+**Dependencias:** Fase 1 (para auto-órdenes)  
+**Estado:** PLANIFICACIÓN COMPLETA  
+**Documentación:** `FASE_4_LOGISTICA_PLAN.md`
 
-#### Objetivos:
-- ✅ Generación de albaranes (PDF)
-- ✅ Integración Holded (facturas, sincronización)
-- ✅ Integración Sendcloud (envíos)
-- ✅ Tracking de envíos
-- ✅ Vista mejorada de shipments
+#### Objetivos Core:
+- ✅ Generación de albaranes PDF (React-PDF)
+- ✅ Integración Holded (facturas, sincronización, webhooks)
+- ✅ Integración Sendcloud (envíos, tracking, webhooks)
+- ✅ Vista mejorada de shipments con filtros
+- ✅ Sistema de middleware común (BaseIntegration)
+
+#### Objetivos IA Foundation (Día 4.5):
+- ✅ **Integration Jobs** - Trazabilidad + retry logic
+- ✅ **Latency Tracking** - Métricas de SLA de proveedores
+- ✅ **Shipment Alerts** - Automáticas por cambio de estado
+- ✅ **Firestore Trigger** - onWrite(shipments) reactivo
+- ✅ **Gemini Context Logger** - Eventos listos para Fase 6
+- ✅ **SHIPMENT_STATUS_MAP** - Constante compartida UI/Backend
+
+#### Arquitectura:
+```typescript
+// BaseIntegration - Middleware común
+export abstract class BaseIntegration {
+  protected useMock: boolean;          // Mock por defecto
+  protected retryAttempts = 3;         // Retry automático
+  
+  protected async call<T>(
+    endpoint: string,
+    method: string,
+    data?: any,
+    jobId?: string                     // Tracking de jobs
+  ): Promise<ApiResponse<T>>
+  
+  protected abstract mockCall(...): Promise<any>;
+  private async logCall(
+    endpoint: string,
+    success: boolean,
+    latencyMs: number                  // Latencia tracking
+  ): Promise<void>
+}
+```
 
 #### Entregables:
 ```
 src/
-├── app/(app)/warehouse/logistics/
-│   ├── page.tsx                    # Vista mejorada shipments
-│   ├── [id]/page.tsx               # Detalle de envío
-│   └── components/
-│       ├── ShipmentCard.tsx
-│       ├── GenerateAlbaran.tsx
-│       └── TrackingInfo.tsx
-├── server/actions/
-│   ├── logistics.ts                # CRUD shipments
-│   ├── holded-sync.ts              # Sincronización Holded
-│   └── sendcloud.ts                # Gestión envíos
-├── server/integrations/            # Nuevo: middleware común
-│   ├── base-integration.ts
+├── server/integrations/
+│   ├── base-integration.ts         # Middleware común + latency
+│   ├── integration-jobs.ts         # Sistema de jobs + retry
 │   ├── holded/
-│   │   ├── client.ts
-│   │   └── mock.ts
+│   │   ├── client.ts               # HoldedClient
+│   │   └── mock.ts                 # Mock con delay
 │   └── sendcloud/
-│       ├── client.ts
-│       └── mock.ts
-└── server/webhooks/
-    ├── holded.ts                   # Webhook Holded
-    └── sendcloud.ts                # Webhook Sendcloud
+│       ├── client.ts               # SendcloudClient
+│       └── mock.ts                 # Mock realista
+├── server/actions/
+│   ├── logistics.ts                # generateAlbaran()
+│   ├── holded-sync.ts              # syncShipmentToHolded()
+│   ├── sendcloud.ts                # createSendcloudShipment()
+│   └── shipment-alerts.ts          # createShipmentAlert()
+├── server/pdf/
+│   └── albaran-generator.ts        # PDF con @react-pdf/renderer
+├── server/gemini/
+│   └── context-logger.ts           # logGeminiContext()
+├── app/api/webhooks/
+│   ├── holded/route.ts             # Webhook invoice.paid
+│   └── sendcloud/route.ts          # Webhook tracking updates
+├── app/(app)/warehouse/logistics/
+│   └── page.tsx                    # UI mejorada
+├── components/logistics/
+│   └── ShipmentCard.tsx            # Card con acciones
+└── functions/src/triggers/
+    └── shipment-status.ts          # Firestore trigger
 ```
 
-#### Tareas:
-- [ ] 4.1 Middleware de integraciones (base-integration.ts)
-- [ ] 4.2 Sistema de albaranes (PDF con React-PDF)
-- [ ] 4.3 Holded client + mock
-- [ ] 4.4 Sendcloud client + mock
-- [ ] 4.5 Webhooks para tracking
-- [ ] 4.6 Vista mejorada de logistics
-- [ ] 4.7 Conexión con órdenes de venta
-- [ ] 4.8 Feature flags para APIs (usar mock o real)
+#### Colecciones Firestore Nuevas:
+```
+- integration_jobs      # Trazabilidad de trabajos API
+- integration_logs      # Logs con latencyMs
+- shipment_tracking     # Historial de tracking
+- gemini_context        # Eventos para IA (Fase 6)
+- alerts                # Alertas automáticas OPS
+```
+
+#### Plan de Implementación:
+
+**Día 1: Middleware + Albaranes** (8h)
+- BaseIntegration abstract class
+- Mock/Real mode switching
+- Albaran PDF generator
+- generateAlbaran() server action
 
 ---
 

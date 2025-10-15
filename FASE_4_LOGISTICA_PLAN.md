@@ -837,20 +837,518 @@ describe('Logistics Flow', () => {
 ```
 
 #### 4.4 Documentation + Final Commit (1h)
-```markdown
-# FASE_4_LOGISTICA_COMPLETE.md
+```bash
+# Commit
+git add .
+git commit -m "feat(logistics): Day 4 - UI + Testing complete
 
-## ✅ Completado
+- LogisticsPage with filters and grid
+- ShipmentCard with actions (albaran, label)
+- End-to-end testing
+- 300+ lines"
+```
 
-- [x] Base integration layer con mock/real mode
-- [x] Albaran PDF generation (@react-pdf/renderer)
-- [x] Holded integration (invoices, sync, webhooks)
-- [x] Sendcloud integration (labels, tracking, webhooks)
-- [x] LogisticsPage UI mejorada
-- [x] ShipmentCard component con acciones
-- [x] Testing integral completo
-- [x] Feature flags para mock vs real APIs
+---
 
-## 📊 Métricas
+### **DÍA 4.5: IA FOUNDATION + OBSERVABILITY** (6h) 🧠
 
--
+**Objetivo:** Preparar infraestructura para Gemini/Santa Brain (Fase 6-7)
+
+#### 4.5.1 Integration Jobs System (2h)
+```typescript
+// src/server/integrations/integration-jobs.ts
+export interface IntegrationJob {
+  id: string;
+  provider: 'holded' | 'sendcloud' | 'shopify';
+  jobType: 'create_invoice' | 'create_shipment' | 'sync_order';
+  refId: string;  // shipmentId, orderId, etc.
+  status: 'pending' | 'running' | 'success' | 'failed' | 'retry';
+  attempts: number;
+  maxAttempts: number;
+  lastRun?: string;
+  nextRun?: string;
+  error?: string;
+  latencyMs?: number;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function createJob(
+  job: Omit<IntegrationJob, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> {
+  const doc = await db.collection('integration_jobs').add({
+    ...job,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+  return doc.id;
+}
+
+export async function updateJobStatus(
+  jobId: string, 
+  status: IntegrationJob['status'], 
+  error?: string,
+  latencyMs?: number
+): Promise<void> {
+  const updates: any = {
+    status,
+    attempts: admin.firestore.FieldValue.increment(1),
+    lastRun: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  
+  if (error) updates.error = error;
+  if (latencyMs) updates.latencyMs = latencyMs;
+  
+  await db.collection('integration_jobs').doc(jobId).update(updates);
+  
+  // If failed and max attempts reached, create alert
+  if (status === 'failed') {
+    const job = (await db.collection('integration_jobs').doc(jobId).get()).data() as IntegrationJob;
+    if (job.attempts >= job.maxAttempts) {
+      await createAlert({
+        department: 'OPS',
+        kind: 'INTEGRATION_FAILURE',
+        severity: 80,
+        title: `${job.provider} integration failed`,
+        message: `Job ${job.jobType} failed after ${job.attempts} attempts: ${error}`,
+        entities: { jobId, refId: job.refId }
+      });
+    }
+  }
+}
+
+export async function getFailedJobs(provider?: string): Promise<IntegrationJob[]> {
+  let query = db.collection('integration_jobs').where('status', '==', 'failed');
+  if (provider) query = query.where('provider', '==', provider);
+  
+  const snap = await query.get();
+  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as IntegrationJob));
+}
+```
+
+#### 4.5.2 Enhanced BaseIntegration with Jobs (1.5h)
+```typescript
+// src/server/integrations/base-integration.ts (UPDATED)
+export abstract class BaseIntegration {
+  protected apiKey: string;
+  protected baseUrl: string;
+  protected useMock: boolean;
+  protected retryAttempts = 3;
+  
+  constructor(config: IntegrationConfig) {
+    this.apiKey = config.apiKey;
+    this.baseUrl = config.baseUrl;
+    this.useMock = config.useMock ?? true;
+  }
+
+  protected async call<T>(
+    endpoint: string, 
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    data?: any,
+    jobId?: string  // NEW: Optional job tracking
+  ): Promise<ApiResponse<T>> {
+    const startTime = Date.now();
+    
+    try {
+      if (this.useMock) {
+        await this.wait(500); // Simulate network latency
+        const result = await this.mockCall(endpoint, method, data);
+        const latency = Date.now() - startTime;
+        
+        await this.logCall(endpoint, true, latency);
+        if (jobId) await updateJobStatus(jobId, 'success', undefined, latency);
+        
+        return result;
+      }
+      
+      // Real API call with retry + job tracking
+      for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+        try {
+          const response = await fetch(`${this.baseUrl}${endpoint}`, {
+            method,
+            headers: {
+              'Authorization': `Bearer ${this.apiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: data ? JSON.stringify(data) : undefined
+          });
+          
+          const latency = Date.now() - startTime;
+          await this.logCall(endpoint, response.ok, latency);
+          
+          if (response.ok) {
+            if (jobId) await updateJobStatus(jobId, 'success', undefined, latency);
+            return await response.json();
+          }
+          
+          throw new Error(`HTTP ${response.status}`);
+        } catch (error) {
+          if (attempt === this.retryAttempts) {
+            const latency = Date.now() - startTime;
+            await this.logCall(endpoint, false, latency);
+            if (jobId) {
+              await updateJobStatus(
+                jobId, 
+                'failed', 
+                error instanceof Error ? error.message : 'Unknown error',
+                latency
+              );
+            }
+            throw error;
+          }
+          await this.wait(1000 * attempt); // Exponential backoff
+        }
+      }
+    } catch (error) {
+      const latency = Date.now() - startTime;
+      await this.logCall(endpoint, false, latency);
+      throw error;
+    }
+  }
+  
+  protected abstract mockCall(endpoint: string, method: string, data?: any): Promise<any>;
+  
+  private async logCall(
+    endpoint: string, 
+    success: boolean, 
+    latencyMs: number  // NEW: Track latency
+  ): Promise<void> {
+    await db.collection('integration_logs').add({
+      provider: this.constructor.name,
+      endpoint,
+      success,
+      latencyMs,  // NEW
+      timestamp: new Date().toISOString(),
+      usedMock: this.useMock
+    });
+  }
+  
+  protected async wait(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+```
+
+#### 4.5.3 Shipment Status Alerts System (1.5h)
+```typescript
+// src/server/actions/shipment-alerts.ts
+import { SHIPMENT_STATUS_MAP } from '@/domain/ssot';
+
+export const SHIPMENT_STATUS_MAP: Record<ShipmentStatus, string> = {
+  pending: 'Pendiente',
+  ready_to_ship: 'Listo para enviar',
+  shipped: 'Enviado',
+  delivered: 'Entregado',
+  exception: 'Incidencia',
+  cancelled: 'Cancelado'
+};
+
+export async function createShipmentAlert(
+  shipment: Shipment,
+  oldStatus: ShipmentStatus,
+  newStatus: ShipmentStatus
+): Promise<void> {
+  const severityMap: Record<ShipmentStatus, number> = {
+    pending: 20,
+    ready_to_ship: 30,
+    shipped: 40,
+    delivered: 10,
+    exception: 90,
+    cancelled: 50
+  };
+  
+  await db.collection('alerts').add({
+    department: 'OPS',
+    kind: 'SHIPMENT_STATUS',
+    severity: severityMap[newStatus] || 40,
+    title: `Envío ${shipment.shipmentNumber}: ${SHIPMENT_STATUS_MAP[newStatus]}`,
+    message: `${SHIPMENT_STATUS_MAP[oldStatus]} → ${SHIPMENT_STATUS_MAP[newStatus]}`,
+    entities: {
+      shipmentId: shipment.id,
+      orderId: shipment.orderId,
+      accountId: shipment.partyId
+    },
+    metadata: {
+      trackingCode: shipment.trackingCode,
+      carrier: shipment.carrier,
+      previousStatus: oldStatus,
+      sendcloudParcelId: shipment.sendcloudParcelId
+    },
+    createdAt: new Date().toISOString(),
+    resolved: false,
+    ...(newStatus === 'delivered' && { 
+      autoResolveAt: new Date().toISOString() 
+    })
+  });
+  
+  // Special handling for exceptions
+  if (newStatus === 'exception') {
+    await notifyOpsTeam(shipment);
+    await logGeminiContext('shipment_exception', {
+      shipmentId: shipment.id,
+      carrier: shipment.carrier,
+      trackingCode: shipment.trackingCode,
+      accountId: shipment.partyId
+    });
+  }
+  
+  // Log context for Gemini
+  await logGeminiContext('shipment_status_change', {
+    shipmentId: shipment.id,
+    fromStatus: oldStatus,
+    toStatus: newStatus,
+    orderId: shipment.orderId
+  });
+}
+
+async function notifyOpsTeam(shipment: Shipment): Promise<void> {
+  // TODO: Send email/Slack notification
+  console.log('[OPS ALERT] Shipment exception:', shipment.id);
+}
+```
+
+#### 4.5.4 Firestore Trigger onWrite(shipments) (1h)
+```typescript
+// functions/src/triggers/shipment-status.ts
+import * as functions from 'firebase-functions';
+import { createShipmentAlert } from '../../../src/server/actions/shipment-alerts';
+import { logGeminiContext } from '../../../src/server/gemini/context-logger';
+
+export const onShipmentStatusChange = functions.firestore
+  .document('shipments/{shipmentId}')
+  .onWrite(async (change, context) => {
+    // Skip on creation
+    if (!change.before.exists) return;
+    
+    const before = change.before.data();
+    const after = change.after.data();
+    
+    if (!after) return; // Deleted
+    
+    // Status changed
+    if (before.status !== after.status) {
+      await createShipmentAlert(
+        { id: context.params.shipmentId, ...after } as Shipment,
+        before.status,
+        after.status
+      );
+      
+      // Update finance KPIs if delivered
+      if (after.status === 'delivered') {
+        await updateFinanceKPIs(after.orderId);
+      }
+    }
+    
+    // Tracking code assigned (Sendcloud label created)
+    if (!before.trackingCode && after.trackingCode) {
+      await logGeminiContext('shipment_tracking_assigned', {
+        shipmentId: context.params.shipmentId,
+        trackingCode: after.trackingCode,
+        carrier: after.carrier,
+        orderId: after.orderId
+      });
+    }
+    
+    // Delivery note generated
+    if (!before.deliveryNoteUrl && after.deliveryNoteUrl) {
+      await logGeminiContext('albaran_generated', {
+        shipmentId: context.params.shipmentId,
+        orderId: after.orderId,
+        pdfUrl: after.deliveryNoteUrl
+      });
+    }
+  });
+
+async function updateFinanceKPIs(orderId: string): Promise<void> {
+  // TODO: Update finance dashboard KPIs
+  console.log('[Finance] Order delivered:', orderId);
+}
+```
+
+#### 4.5.5 Gemini Context Logger (0.5h)
+```typescript
+// src/server/gemini/context-logger.ts
+export async function logGeminiContext(
+  eventType: string,
+  data: Record<string, any>
+): Promise<void> {
+  await db.collection('gemini_context').add({
+    eventType,
+    data,
+    timestamp: new Date().toISOString(),
+    module: 'logistics',
+    processed: false
+  });
+}
+
+// Event types for Gemini (Fase 6):
+// - 'shipment_exception' → Gemini analyzes patterns
+// - 'shipment_status_change' → Track delivery times
+// - 'integration_failure' → Recommend alternatives
+// - 'invoice_overdue' → Suggest collection actions
+// - 'albaran_generated' → Track processing times
+// - 'shipment_tracking_assigned' → Monitor carrier SLA
+```
+
+#### 4.5.6 Update Holded/Sendcloud Clients (0.5h)
+```typescript
+// Update createInvoice to use jobs
+export async function syncShipmentToHolded(shipmentId: string): Promise<{
+  success: boolean;
+  invoiceId?: string;
+  jobId?: string;
+  error?: string;
+}> {
+  try {
+    const shipment = await getShipment(shipmentId);
+    if (!shipment) throw new Error('Shipment not found');
+    
+    if (shipment.holdedInvoiceId) {
+      return { success: true, invoiceId: shipment.holdedInvoiceId };
+    }
+    
+    // Create job
+    const jobId = await createJob({
+      provider: 'holded',
+      jobType: 'create_invoice',
+      refId: shipmentId,
+      status: 'pending',
+      attempts: 0,
+      maxAttempts: 3
+    });
+    
+    // Create invoice with job tracking
+    const invoice = await holdedClient.createInvoice(shipment, jobId);
+    
+    await db.collection('shipments').doc(shipmentId).update({
+      holdedInvoiceId: invoice.id,
+      holdedInvoiceNumber: invoice.docNumber,
+      holdedSyncedAt: new Date().toISOString()
+    });
+    
+    // Create FinanceLink
+    await db.collection('financeLinks').add({
+      docType: 'invoice',
+      externalId: invoice.id,
+      status: 'pending',
+      docNumber: invoice.docNumber,
+      relatedShipmentId: shipmentId,  // NEW: Link back
+      netAmount: invoice.total / 1.21,
+      taxAmount: invoice.total - (invoice.total / 1.21),
+      grossAmount: invoice.total,
+      currency: 'EUR',
+      issueDate: new Date().toISOString(),
+      dueDate: addDays(new Date(), 30).toISOString(),
+      partyId: shipment.partyId
+    });
+    
+    return { success: true, invoiceId: invoice.id, jobId };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+}
+```
+
+#### 4.5.7 Testing + Commit (0.5h)
+```bash
+# Test integration jobs
+npm run test:integration-jobs
+
+# Commit
+git add .
+git commit -m "feat(logistics): Day 4.5 - IA Foundation + Observability
+
+- Integration jobs system with retry logic
+- Latency tracking in all API calls
+- Shipment status alerts (automatic)
+- Firestore trigger onWrite(shipments)
+- Gemini context logger for Fase 6
+- SHIPMENT_STATUS_MAP shared constant
+- Enhanced BaseIntegration with job tracking
+- 400+ lines IA-ready infrastructure"
+```
+
+---
+
+## ✅ CHECKLIST FINAL (Antes del Merge)
+
+### Funcionalidad Core:
+- [ ] BaseIntegration con mock/real mode ✅
+- [ ] Albaran PDF con URL pública (https)
+- [ ] Holded integration + webhook
+- [ ] Sendcloud integration + webhook
+- [ ] LogisticsPage UI completa
+- [ ] ShipmentCard con acciones
+
+### IA Foundation:
+- [ ] integration_jobs collection
+- [ ] Latency tracking (latencyMs)
+- [ ] createShipmentAlert() automático
+- [ ] Firestore trigger onWrite(shipments)
+- [ ] SHIPMENT_STATUS_MAP exportado
+- [ ] logGeminiContext() para eventos clave
+- [ ] gemini_context collection
+
+### Security & Production:
+- [ ] Webhook signature verification
+- [ ] Feature flags configurables
+- [ ] Error handling completo
+- [ ] Testing end-to-end
+- [ ] Logging centralizado
+
+### UI/UX:
+- [ ] Placeholder "Insights Gemini" en ShipmentDrawer
+- [ ] Filtro "Con incidencias"
+- [ ] Mini timeline en ShipmentCard
+- [ ] Badge de severidad (on-time/delay)
+
+---
+
+## 📊 Métricas Finales
+
+**Total de líneas:** ~2,200 líneas
+**Archivos creados:** 15+
+**Colecciones Firestore nuevas:**
+- `integration_jobs` - Trazabilidad de trabajos
+- `integration_logs` - Logs de llamadas API
+- `shipment_tracking` - Historial de tracking
+- `gemini_context` - Eventos para IA
+
+**Preparación IA:**
+- ✅ Sistema de señales listo
+- ✅ Histórico de eventos
+- ✅ Métricas de latencia
+- ✅ Alertas automáticas
+
+**Cuando llegues a Fase 6 (Gemini):**
+Gemini podrá analizar:
+- Patrones de fallos de integraciones
+- Tiempos de entrega por carrier
+- Incidencias recurrentes
+- SLA de proveedores
+- Recomendaciones de optimización
+
+---
+
+## 🚀 Próximos Pasos
+
+**Opción A: Fase 5 - Gmail Integration** 📧
+- Envío de albaranes por email
+- Notificaciones automáticas de tracking
+- Ingesta histórica para IA
+
+**Opción B: Fase 6 - Gemini Intelligence** 🤖
+- **YA ESTÁ PREPARADO** gracias al Día 4.5
+- Análisis de señales logísticas
+- Predicciones de incidencias
+- Recomendaciones de acción
+
+**Opción C: Integrar Accounts con Logística** 🔗
+- Timeline de envíos en AccountDrawer
+- KPIs de logística por cuenta
+- Alertas de retrasos
