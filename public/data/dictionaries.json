@@ -1,0 +1,30 @@
+
+{
+  "posTactics": [
+    "ICE_BUCKET",
+    "GLASSWARE",
+    "BARTENDER_INCENTIVE",
+    "MENU_PLACEMENT",
+    "CHALKBOARD",
+    "TWO_FOR_ONE",
+    "HAPPY_HOUR",
+    "SECONDARY_PLACEMENT",
+    "OTHER"
+  ],
+  "posAssetKinds": [
+    "ice_bucket",
+    "glassware_std",
+    "glassware_premium",
+    "poster",
+    "bar_mat",
+    "led_sign",
+    "other"
+  ],
+  "interactionKinds": [
+    "VISITA",
+    "LLAMADA",
+    "EMAIL",
+    "WHATSAPP",
+    "OTRO"
+  ]
+}

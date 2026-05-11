@@ -1,0 +1,2 @@
+id,lotNumber,testDate,testType,parameter,expectedValue,actualValue,result,testedBy,notes
+qc_001,LOT-2025-001,2025-01-05,FISICO,pH,3.5,3.4,PASS,u_quality,Dentro de rango

@@ -1,0 +1,129 @@
+// src/app/api/shipment/[shipmentId]/picking-slip/route.ts
+import { NextResponse, type NextRequest } from 'next/server';
+import { adminDb as db } from '@/server/firebase';
+import type { Shipment, Order, Item, Account } from '@/domain/ssot';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { z } from 'zod';
+
+const ParamsSchema = z.object({ shipmentId: z.string().min(1) });
+
+async function renderPickingSlipPdf(shipment: Shipment, itemsById: Map<string, Item>, order?: Order, party?: Account): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([595.28, 841.89]); // A4
+  const { width, height } = page.getSize();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
+
+  const drawText = (text: string, x: number, y: number, size = 10, isBold = false) => {
+    page.drawText(text, { x, y, font: isBold ? boldFont : font, size });
+  };
+  
+  let y = height - 50;
+
+  // Header
+  drawText('Hoja de Picking', 50, y, 18, true);
+  drawText(`Envío: ${shipment.id}`, 50, y - 20, 12);
+  drawText(`Fecha: ${new Date(shipment.createdAt).toLocaleDateString('es-ES')}`, width - 150, y, 12);
+  y -= 50;
+
+  // Customer Info
+  drawText('Cliente y Dirección de Envío', 50, y, 12, true);
+  y -= 15;
+  const customerName = party?.name || 'Cliente';
+  drawText(customerName, 50, y);
+  y -= 15;
+  const toAddress = shipment.toAddress;
+  if(toAddress?.street) {
+    drawText(toAddress.street, 50, y);
+    y -= 15;
+  }
+  drawText(`${toAddress?.postalCode || ''} ${toAddress?.city || ''}, ${toAddress?.country || 'España'}`, 50, y);
+  y -= 30;
+
+  // Lines Header
+  drawText('ItemID', 50, y, 10, true);
+  drawText('Producto', 150, y, 10, true);
+  drawText('Cantidad', 350, y, 10, true);
+  drawText('Lote Asignado', 420, y, 10, true);
+  y -= 5;
+  page.drawLine({ start: { x: 50, y }, end: { x: width - 50, y }});
+  y -= 15;
+
+  // Lines
+  for (const line of shipment.lines) {
+    const sku = line.sku || '';
+    const item = itemsById.get(sku);
+    drawText(sku, 50, y, 10);
+    drawText(item?.name || sku, 150, y, 10);
+    drawText(String(line.qty || 0), 360, y, 10);
+    // Draw an empty box for lot number
+    page.drawRectangle({
+        x: 420,
+        y: y - 2,
+        width: 120,
+        height: 14,
+        borderColor: rgb(0.7, 0.7, 0.7),
+        borderWidth: 1,
+    });
+    y -= 25;
+  }
+  y -= 10;
+  
+  // Checks section
+  drawText('Verificaciones de Almacén', 50, y, 12, true);
+  y -= 20;
+
+  // Visual Check
+  page.drawRectangle({ x: 50, y, width: 12, height: 12, borderColor: rgb(0,0,0), borderWidth: 1 });
+  drawText('Inspección Visual OK', 70, y, 10);
+  y -= 20;
+
+  // Notes
+  drawText('Notas / Incidencias:', 50, y, 10, true);
+  y -= 15;
+  page.drawRectangle({ x: 50, y, width: width - 100, height: 60, borderColor: rgb(0.7, 0.7, 0.7), borderWidth: 1 });
+  y -= 70;
+  
+  // Signatures
+  drawText('Preparado por:', 50, y, 10, true);
+  page.drawLine({ start: { x: 120, y: y-2 }, end: { x: 280, y: y-2 }, thickness: 0.5 });
+  drawText('Revisado por:', 320, y, 10, true);
+  page.drawLine({ start: { x: 390, y: y-2 }, end: { x: width - 50, y: y-2 }, thickness: 0.5 });
+
+  return doc.save();
+}
+
+type RouteCtx = { params: Promise<{ shipmentId?: string }> };
+
+export async function GET(
+  _req: NextRequest,
+  { params }: RouteCtx
+) {
+  const resolvedParams = await params;
+  const { shipmentId } = ParamsSchema.parse(resolvedParams);
+
+  try {
+    const shipmentSnap = await db.collection('shipments').doc(shipmentId).get();
+    if (!shipmentSnap.exists) {
+      return new NextResponse('Shipment not found', { status: 404 });
+    }
+    const shipment = shipmentSnap.data() as Shipment;
+
+    const itemsSnap = await db.collection('items').get();
+    const itemsById = new Map(itemsSnap.docs.map(d => [d.id, d.data() as Item]));
+
+    const pdfBytes = await renderPickingSlipPdf(shipment, itemsById);
+    
+    return new NextResponse(Buffer.from(pdfBytes), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="picking-slip-${shipmentId}.pdf"`,
+      },
+    });
+
+  } catch (error) {
+    console.error(`Failed to generate picking slip for shipment ${shipmentId}:`, error);
+    return new NextResponse('Internal Server Error', { status: 500 });
+  }
+}

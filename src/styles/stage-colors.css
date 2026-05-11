@@ -1,0 +1,29 @@
+/* Stage colors usando tokens de Santa Brisa */
+@reference "tailwindcss";
+
+@layer components {
+  /* Colores sutiles por stage */
+  .stage-activa {
+    background: color-mix(in srgb, hsl(var(--success)) 8%, transparent);
+  }
+  
+  .stage-seguimiento {
+    background: color-mix(in srgb, hsl(var(--warning)) 8%, transparent);
+  }
+  
+  .stage-potencial {
+    background: color-mix(in srgb, hsl(var(--info)) 8%, transparent);
+  }
+  
+  .stage-fallida {
+    background: color-mix(in srgb, hsl(var(--destructive)) 8%, transparent);
+  }
+  
+  .stage-cerrada {
+    background: color-mix(in srgb, hsl(var(--muted)) 8%, transparent);
+  }
+  
+  .stage-baja {
+    background: color-mix(in srgb, hsl(var(--muted-foreground)) 8%, transparent);
+  }
+}

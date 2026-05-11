@@ -1,0 +1,29 @@
+diff --git a/src/app/(app)/production/execution/page.tsx b/src/app/(app)/production/execution/page.tsx
+index 8a7b6c5..e9f0d1a 100644
+--- a/src/app/(app)/production/execution/page.tsx
++++ b/src/app/(app)/production/execution/page.tsx
+@@ -1019,7 +1019,20 @@
+   const [openOrder, setOpenOrder] = useState<ProductionOrder | null>(null);
+   const [openBom, setOpenBom] = useState<any>(null); // For PlanningBoard
+ 
+-  const boms = useMemo(() => ((santaData?.billOfMaterials ?? []) as any[]).map(b => ({ id: b.id, name: b.name ?? b.id })), [santaData]);
++  const boms = useMemo(() => {
++    const raw = (santaData?.billOfMaterials ?? []) as any[];
++    return raw.map((b) => {
++      // Intentamos deducir el "tipo" de BOM: PRODUCCION o ENVASADO
++      const kind =
++        (b.kind as string) ??
++        (b.stage as string) ??
++        (b.output?.isFinal ? "ENVASADO" : "PRODUCCION");
++      const baseUnit = b.baseUnit ?? b.uom ?? "L";
++      return {
++        id: b.id,
++        name: b.name ?? b.id,
++        kind,
++        baseUnit,
++      };
++    });
++  }, [santaData]);
+   const ordersAll = useMemo(() => (santaData?.productionOrders ?? []) as ProductionOrder[], [santaData]);
+   const orders = useMemo(() => ordersAll, [ordersAll]);
+   const allItems = useMemo(() => (santaData?.items ?? []) as Item[], [santaData]);

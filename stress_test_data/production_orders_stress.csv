@@ -1,0 +1,5 @@
+id,orderNumber,itemId,qty,uom,status,createdAt,startedAt,completedAt,responsible
+PO-01,PO-01,item_fg_turm_blanco,1000,L,completed,2025-08-22T00:00:00,2025-08-22T01:00:00,2025-08-22T08:00:00,Nacho
+PO-02,PO-02,item_fg_turm_velvet,1000,L,completed,2025-08-29T00:00:00,2025-08-29T01:00:00,2025-08-29T08:00:00,Nacho
+PO-03,PO-03,item_fg_turm_white,1000,L,completed,2025-09-05T00:00:00,2025-09-05T01:00:00,2025-09-05T08:00:00,Nacho
+PO-04,PO-04,item_fg_turm_classic,1000,L,completed,2025-09-12T00:00:00,2025-09-12T01:00:00,2025-09-12T08:00:00,Nacho

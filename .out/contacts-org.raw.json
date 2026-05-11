@@ -1,0 +1,113 @@
+[
+  {
+    "id": "c_01141b8aa2b5",
+    "kind": "ORG",
+    "roles": [
+      "SUPPLIER"
+    ],
+    "displayName": "ELITE DE EMBALAJE SL",
+    "legalName": "ELITE DE EMBALAJE SL",
+    "tradeName": "ELITE DE EMBALAJE SL",
+    "nameNorm": "elite de embalaje sl",
+    "status": "Potencial",
+    "source": "CSV",
+    "updatedAt": "2025-10-12T11:30:29.417Z",
+    "phones": [
+      {
+        "value": "941445008",
+        "kind": "work",
+        "isPrimary": true
+      }
+    ],
+    "addresses": [
+      {
+        "kind": "billing",
+        "street": "",
+        "city": "Logroño",
+        "postalCode": "26006",
+        "province": "La Rioja",
+        "countryCode": "ES"
+      }
+    ],
+    "createdAt": "2025-10-12T11:30:29.417Z"
+  },
+  {
+    "id": "c_01be588dd907",
+    "kind": "ORG",
+    "roles": [
+      "CUSTOMER"
+    ],
+    "displayName": "Luis Perez Ullivarri",
+    "legalName": "Luis Perez Ullivarri",
+    "tradeName": "Luis Perez Ullivarri",
+    "nameNorm": "luis perez ullivarri",
+    "status": "Activa",
+    "source": "CSV",
+    "updatedAt": "2025-10-12T11:30:24.903Z",
+    "emails": [
+      {
+        "value": "lpu@mac.com",
+        "isPrimary": true
+      }
+    ],
+    "phones": [
+      {
+        "value": "34629176406",
+        "kind": "work",
+        "isPrimary": true
+      }
+    ],
+    "addresses": [
+      {
+        "kind": "billing",
+        "street": "Poniente 9 Monte Alina",
+        "city": "Pozuelo de Alarcon",
+        "postalCode": "28223",
+        "province": "Madrid",
+        "countryCode": "ES"
+      }
+    ],
+    "customer": {
+      "segment": "ONLINE",
+      "placement": "DIRECTA"
+    },
+    "stage": "CLOSED_WON",
+    "createdAt": "2025-10-12T11:30:24.903Z"
+  },
+  {
+    "id": "c_0283f6d7dc0e",
+    "kind": "ORG",
+    "roles": [
+      "CUSTOMER"
+    ],
+    "displayName": "silvia gsrteiz",
+    "legalName": "silvia gsrteiz",
+    "tradeName": "silvia gsrteiz",
+    "nameNorm": "silvia gsrteiz",
+    "status": "Activa",
+    "source": "CSV",
+    "updatedAt": "2025-10-12T11:30:25.201Z",
+    "emails": [
+      {
+        "value": "sgarteiz@yahoo.es",
+        "isPrimary": true
+      }
+    ],
+    "addresses": [
+      {
+        "kind": "billing",
+        "street": "paseo habana 141 3b",
+        "city": "madrid",
+        "postalCode": "28036",
+        "province": "Madrid",
+        "countryCode": "ES"
+      }
+    ],
+    "customer": {
+      "segment": "ONLINE",
+      "placement": "DIRECTA"
+    },
+    "stage": "CLOSED_WON",
+    "createdAt": "2025-10-12T11:30:25.201Z"
+  }
+]

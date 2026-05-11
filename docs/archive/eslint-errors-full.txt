@@ -1,0 +1,207 @@
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/functions/src/algolia-sync.ts
+  0:0  error  Parsing error: "parserOptions.project" has been provided for @typescript-eslint/parser.
+The file was not found in any of the provided project(s): functions/src/algolia-sync.ts
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/functions/src/automation/checkInactiveAccounts.ts
+  0:0  error  Parsing error: "parserOptions.project" has been provided for @typescript-eslint/parser.
+The file was not found in any of the provided project(s): functions/src/automation/checkInactiveAccounts.ts
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/functions/src/firebase-admin.ts
+  0:0  error  Parsing error: "parserOptions.project" has been provided for @typescript-eslint/parser.
+The file was not found in any of the provided project(s): functions/src/firebase-admin.ts
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/functions/src/index.ts
+  0:0  error  Parsing error: "parserOptions.project" has been provided for @typescript-eslint/parser.
+The file was not found in any of the provided project(s): functions/src/index.ts
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/functions/src/triggers/shipment-status.ts
+  0:0  error  Parsing error: "parserOptions.project" has been provided for @typescript-eslint/parser.
+The file was not found in any of the provided project(s): functions/src/triggers/shipment-status.ts
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/functions/src/triggers/shipments.ts
+  0:0  error  Parsing error: "parserOptions.project" has been provided for @typescript-eslint/parser.
+The file was not found in any of the provided project(s): functions/src/triggers/shipments.ts
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/functions/src/utils/dateHelpers.ts
+  0:0  error  Parsing error: "parserOptions.project" has been provided for @typescript-eslint/parser.
+The file was not found in any of the provided project(s): functions/src/utils/dateHelpers.ts
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/@drawer/(.)ventas/sell-in/[id]/page.tsx
+  101:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+  108:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/@drawer/(.)warehouse/logistics/[id]/page.tsx
+  297:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+  304:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/admin/brain/BrainPanel.tsx
+  170:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+  177:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+  184:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+  191:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+  198:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+  205:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/admin/integrations-test/page.tsx
+  69:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+  76:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/admin/users/page.tsx
+  14:9  warning  The 'users' logical expression could make the dependencies of useMemo Hook (at line 37) change on every render. To fix this, wrap the initialization of 'users' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  14:9  warning  The 'users' logical expression could make the dependencies of useMemo Hook (at line 46) change on every render. To fix this, wrap the initialization of 'users' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/calendario/page.tsx
+  26:6  warning  React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/finance/cobros/page.tsx
+  10:9  warning  The 'financeLinks' logical expression could make the dependencies of useMemo Hook (at line 20) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'financeLinks' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/finance/dashboard/page.tsx
+  10:9  warning  The 'financeLinks' logical expression could make the dependencies of useMemo Hook (at line 28) change on every render. To fix this, wrap the initialization of 'financeLinks' in its own useMemo() Hook                                         react-hooks/exhaustive-deps
+  11:9  warning  The 'paymentLinks' logical expression could make the dependencies of useMemo Hook (at line 28) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'paymentLinks' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/finance/pagos/page.tsx
+  10:9  warning  The 'paymentLinks' logical expression could make the dependencies of useMemo Hook (at line 25) change on every render. To fix this, wrap the initialization of 'paymentLinks' in its own useMemo() Hook                                         react-hooks/exhaustive-deps
+  10:9  warning  The 'paymentLinks' logical expression could make the dependencies of useMemo Hook (at line 56) change on every render. To fix this, wrap the initialization of 'paymentLinks' in its own useMemo() Hook                                         react-hooks/exhaustive-deps
+  11:9  warning  The 'financeLinks' logical expression could make the dependencies of useMemo Hook (at line 25) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'financeLinks' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/marketing/ads/page.tsx
+  20:9  warning  The 'campaigns' logical expression could make the dependencies of useMemo Hook (at line 28) change on every render. To fix this, wrap the initialization of 'campaigns' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  20:9  warning  The 'campaigns' logical expression could make the dependencies of useMemo Hook (at line 43) change on every render. To fix this, wrap the initialization of 'campaigns' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/marketing/collabs/page.tsx
+   19:9  warning  The 'collabs' logical expression could make the dependencies of useMemo Hook (at line 41) change on every render. To fix this, wrap the initialization of 'collabs' in its own useMemo() Hook  react-hooks/exhaustive-deps
+   19:9  warning  The 'collabs' logical expression could make the dependencies of useMemo Hook (at line 51) change on every render. To fix this, wrap the initialization of 'collabs' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  117:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button                                                                                   jsx-a11y/role-supports-aria-props
+  124:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button                                                                                   jsx-a11y/role-supports-aria-props
+  131:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button                                                                                   jsx-a11y/role-supports-aria-props
+  138:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button                                                                                   jsx-a11y/role-supports-aria-props
+  145:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button                                                                                   jsx-a11y/role-supports-aria-props
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/marketing/events-activations/page.tsx
+  24:9  warning  The 'events' logical expression could make the dependencies of useMemo Hook (at line 37) change on every render. To fix this, wrap the initialization of 'events' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/marketing/pos-mkt/page.tsx
+  16:9  warning  The 'plvMaterials' logical expression could make the dependencies of useMemo Hook (at line 33) change on every render. To fix this, wrap the initialization of 'plvMaterials' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  16:9  warning  The 'plvMaterials' logical expression could make the dependencies of useMemo Hook (at line 43) change on every render. To fix this, wrap the initialization of 'plvMaterials' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  75:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button                                                                                             jsx-a11y/role-supports-aria-props
+  82:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button                                                                                             jsx-a11y/role-supports-aria-props
+  89:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button                                                                                             jsx-a11y/role-supports-aria-props
+  96:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button                                                                                             jsx-a11y/role-supports-aria-props
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/production/bom/page.tsx
+  111:6  warning  React Hook useEffect has a missing dependency: 'fm'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/production/dashboard/page.tsx
+  80:9  warning  The 'productionOrders' logical expression could make the dependencies of useMemo Hook (at line 89) change on every render. To fix this, wrap the initialization of 'productionOrders' in its own useMemo() Hook                  react-hooks/exhaustive-deps
+  80:9  warning  The 'productionOrders' logical expression could make the dependencies of useMemo Hook (at line 93) change on every render. To fix this, wrap the initialization of 'productionOrders' in its own useMemo() Hook                  react-hooks/exhaustive-deps
+  81:9  warning  The 'lots' logical expression could make the dependencies of useMemo Hook (at line 97) change on every render. To fix this, wrap the initialization of 'lots' in its own useMemo() Hook                                          react-hooks/exhaustive-deps
+  82:9  warning  The 'boms' logical expression could make the dependencies of useMemo Hook (at line 101) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'boms' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/production/execution/page.tsx
+  86:9  warning  The 'items' logical expression could make the dependencies of useMemo Hook (at line 91) change on every render. To fix this, wrap the initialization of 'items' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/proyectos/page.tsx
+  51:6  warning  React Hook useEffect has a missing dependency: 'loadProjects'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/quality/dashboard/page.tsx
+  31:9  warning  The 'lots' logical expression could make the dependencies of useMemo Hook (at line 127) change on every render. To fix this, wrap the initialization of 'lots' in its own useMemo() Hook                                               react-hooks/exhaustive-deps
+  31:9  warning  The 'lots' logical expression could make the dependencies of useMemo Hook (at line 142) change on every render. To fix this, wrap the initialization of 'lots' in its own useMemo() Hook                                               react-hooks/exhaustive-deps
+  32:9  warning  The 'qcTests' logical expression could make the dependencies of useMemo Hook (at line 127) change on every render. To fix this, wrap the initialization of 'qcTests' in its own useMemo() Hook                                         react-hooks/exhaustive-deps
+  33:9  warning  The 'qualityReleases' logical expression could make the dependencies of useMemo Hook (at line 127) change on every render. To fix this, wrap the initialization of 'qualityReleases' in its own useMemo() Hook                         react-hooks/exhaustive-deps
+  33:9  warning  The 'qualityReleases' logical expression could make the dependencies of useMemo Hook (at line 149) change on every render. To fix this, wrap the initialization of 'qualityReleases' in its own useMemo() Hook                         react-hooks/exhaustive-deps
+  33:9  warning  The 'qualityReleases' logical expression could make the dependencies of useMemo Hook (at line 181) change on every render. To fix this, wrap the initialization of 'qualityReleases' in its own useMemo() Hook                         react-hooks/exhaustive-deps
+  34:9  warning  The 'qcPlans' logical expression could make the dependencies of useMemo Hook (at line 127) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'qcPlans' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/quality/lots/QualityLotsClient.tsx
+  147:6  warning  React Hook useMemo has a missing dependency: 'plansBySku'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/test-drawer/page.tsx
+  49:29  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  49:45  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  50:29  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  50:49  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/app/(app)/warehouse/inventory/components/NewOnHandDialog.tsx
+  107:6   warning  React Hook React.useEffect has a missing dependency: 'suppliers'. Either include it or remove the dependency array. If 'setLocalSuppliers' needs the current value of 'suppliers', you can also switch to useReducer instead of useState and read 'suppliers' in the reducer             react-hooks/exhaustive-deps
+  647:23  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/components/accounts/AccountDrawer.tsx
+  42:6  warning  React Hook useEffect has a missing dependency: 'loadAccountData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/components/analytics/AnalyticsContent.tsx
+   86:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+   93:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+  100:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/components/cuentas/AccountsDataTable.tsx
+  93:6  warning  React Hook useEffect has a missing dependency: 'applyFilters'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/components/dashboard/DailyQuotasWidget.tsx
+  23:6  warning  React Hook useEffect has a missing dependency: 'loadQuotas'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/components/finanzas/AccountsSyncStatus.tsx
+  40:6  warning  React Hook useEffect has a missing dependency: 'applyFilters'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/components/finanzas/HoldedSyncPanel.tsx
+  282:40  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  282:54  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  298:76  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  298:87  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/components/gemini/GeminiDashboard.tsx
+  144:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+  151:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+  163:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+  170:9  warning  The attribute aria-selected is not supported by the role button. This role is implicit on the element button  jsx-a11y/role-supports-aria-props
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/components/marketing/ImageUpload.tsx
+  112:17  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/components/ui/SBDialog.tsx
+  36:6  warning  React Hook React.useEffect has a missing dependency: 'handleKeyDown'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/components/warehouse/PhotoUploadButton.tsx
+  176:19  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/components/warehouse/ProductSearchCombobox.tsx
+  250:31  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/features/production/execution/components/RightSidebarPanel.tsx
+  26:6  warning  React Hook React.useEffect has missing dependencies: 'activeForm.finalOutput' and 'setFormValue'. Either include them or remove the dependency array. If 'setFormValue' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/features/projects/components/ProjectDrawer.tsx
+  52:6  warning  React Hook useEffect has a missing dependency: 'loadProjectData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/features/quicklog/components/MessageReviewForm.tsx
+  223:11  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  223:32  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/features/quicklog/components/SBFlows.tsx
+  379:15  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/features/quicklog/components/SantaBrainConfirmation.tsx
+  21:9  warning  The 'accounts' logical expression could make the dependencies of useEffect Hook (at line 32) change on every render. To fix this, wrap the initialization of 'accounts' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  21:9  warning  The 'accounts' logical expression could make the dependencies of useEffect Hook (at line 60) change on every render. To fix this, wrap the initialization of 'accounts' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/features/trace/TraceProvider.tsx
+  106:6  warning  React Hook useEffect has a missing dependency: 'toggleTraceMode'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  134:6  warning  React Hook useEffect has a missing dependency: 'inspectElement'. Either include it or remove the dependency array   react-hooks/exhaustive-deps
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/features/warehouse/components/DataQualityCenter.tsx
+  74:36  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  74:55  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/features/warehouse/components/GoodsReceiptDrawer.tsx
+  340:53  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  340:66  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  479:88  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  479:96  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+/Users/martinjaimesamperiz/Santa-brisa-ERP/src/features/warehouse/components/QuickGoodsReceiptDialog.tsx
+  83:41  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  83:54  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+✖ 101 problems (25 errors, 76 warnings)
+

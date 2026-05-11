@@ -1,0 +1,384 @@
+#!/usr/bin/env tsx
+/**
+ * Codemod Master: Fix SSOT v7 Migration Errors
+ * 
+ * Arregla errores TypeScript tras migración a SSOT v7:
+ * 1. Import paths incorrectos
+ * 2. Tipos legacy inexistentes
+ * 3. Collections renombradas
+ * 4. Propiedades de Account/Order actualizadas
+ * 
+ * Uso: npx tsx scripts/fix-ssot-v7-errors.ts [--dry-run] [--verbose]
+ */
+
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+interface Fix {
+  line: number;
+  before: string;
+  after: string;
+  category: string;
+}
+
+interface FileResult {
+  filePath: string;
+  fixes: Fix[];
+  warnings: string[];
+  modified: boolean;
+}
+
+const args = process.argv.slice(2);
+const options = {
+  dryRun: args.includes('--dry-run'),
+  verbose: args.includes('--verbose'),
+  createBackup: !args.includes('--no-backup'),
+};
+
+console.log(`
+🔧 SSOT v7 Error Fixer
+═════════════════════════
+
+Mode: ${options.dryRun ? '🔍 DRY RUN' : '✏️  APPLY CHANGES'}
+Backup: ${options.createBackup && !options.dryRun ? '✅' : '❌'}
+Verbose: ${options.verbose ? '✅' : '❌'}
+`);
+
+function findSourceFiles(dir: string): string[] {
+  const files: string[] = [];
+  
+  function walk(currentPath: string) {
+    const entries = fs.readdirSync(currentPath, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(currentPath, entry.name);
+      
+      if (entry.isDirectory()) {
+        if (!['node_modules', '.next', 'dist', 'build'].includes(entry.name)) {
+          walk(fullPath);
+        }
+      } else if (entry.isFile()) {
+        if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) {
+          files.push(fullPath);
+        }
+      }
+    }
+  }
+  
+  walk(dir);
+  return files;
+}
+
+function transformFile(content: string, filePath: string): FileResult {
+  const lines = content.split('\n');
+  const fixes: Fix[] = [];
+  const warnings: string[] = [];
+  let modified = false;
+  
+  const transformedLines = lines.map((line, index) => {
+    let transformed = line;
+    const lineNum = index + 1;
+    
+    // 1. Fix import paths: 'domain/ssot' → '@/domain/ssot'
+    if (/from\s+['"]domain\/ssot['"]/.test(line)) {
+      const before = transformed;
+      transformed = transformed.replace(/from\s+['"]domain\/ssot['"]/g, "from '@/domain/ssot'");
+      if (before !== transformed) {
+        fixes.push({ line: lineNum, before, after: transformed, category: 'import-path' });
+        modified = true;
+      }
+    }
+    
+    // 2. Fix legacy types in imports
+    if (/import\s+{[^}]+}\s+from\s+['"][@/]*domain\/ssot['"]/.test(line)) {
+      const before = transformed;
+      
+      // Party → Account (pero cuidado con AccountParty)
+      if (/\bParty\b/.test(transformed) && !/AccountParty/.test(transformed)) {
+        transformed = transformed.replace(/\bParty\b/g, 'Account');
+        warnings.push(`Line ${lineNum}: Party → Account (review if context is correct)`);
+      }
+      
+      // User → TeamMember
+      if (/\bUser\b/.test(transformed) && !/UserId|UserRole/.test(transformed)) {
+        transformed = transformed.replace(/\bUser\b/g, 'TeamMember');
+      }
+      
+      // Stage → AccountStage
+      if (/\bStage\b/.test(transformed)) {
+        transformed = transformed.replace(/\bStage\b/g, 'AccountStage');
+      }
+      
+      // Team → remove (no existe en v7)
+      if (/\bTeam\b/.test(transformed)) {
+        transformed = transformed.replace(/,?\s*Team\s*,?/g, '');
+        warnings.push(`Line ${lineNum}: Type 'Team' removed - no longer exists in SSOT v7`);
+      }
+      
+      // GoodsReceipt → remove
+      if (/\bGoodsReceipt\b/.test(transformed)) {
+        transformed = transformed.replace(/,?\s*GoodsReceipt\s*,?/g, '');
+        warnings.push(`Line ${lineNum}: Type 'GoodsReceipt' removed - not in SSOT v7 yet`);
+      }
+      
+      // OnHandView → OnHand
+      if (/\bOnHandView\b/.test(transformed)) {
+        transformed = transformed.replace(/\bOnHandView\b/g, 'OnHand');
+      }
+      
+      if (before !== transformed) {
+        fixes.push({ line: lineNum, before, after: transformed, category: 'import-types' });
+        modified = true;
+      }
+    }
+    
+    // 3. Fix collection names
+    // data.ordersSellOut → data.orderSellOut
+    if (/\bdata\??\.ordersSellOut\b/.test(line)) {
+      const before = transformed;
+      transformed = transformed.replace(/\bdata\??\.ordersSellOut\b/g, (match) => 
+        match.includes('?.') ? 'data?.orderSellOut' : 'data.orderSellOut'
+      );
+      if (before !== transformed) {
+        fixes.push({ line: lineNum, before, after: transformed, category: 'collection-name' });
+        modified = true;
+      }
+    }
+    
+    // data.parties → data.accounts (con warning)
+    if (/\bdata\??\.parties\b/.test(line)) {
+      const before = transformed;
+      transformed = transformed.replace(/\bdata\??\.parties\b/g, (match) =>
+        match.includes('?.') ? 'data?.accounts' : 'data.accounts'
+      );
+      warnings.push(`Line ${lineNum}: data.parties → data.accounts (REVIEW: may need logic changes)`);
+      if (before !== transformed) {
+        fixes.push({ line: lineNum, before, after: transformed, category: 'collection-name' });
+        modified = true;
+      }
+    }
+    
+    // data.teams → remove or warning
+    if (/\bdata\??\.teams\b/.test(line)) {
+      warnings.push(`Line ${lineNum}: data.teams no longer exists in SSOT v7 - MANUAL FIX NEEDED`);
+    }
+    
+    // 4. Fix Account properties
+    // .distributorPartyId → .distributorId
+    if (/\.distributorPartyId\b/.test(line)) {
+      const before = transformed;
+      transformed = transformed.replace(/\.distributorPartyId\b/g, '.distributorId');
+      if (before !== transformed) {
+        fixes.push({ line: lineNum, before, after: transformed, category: 'account-property' });
+        modified = true;
+      }
+    }
+    
+    // .stage → .accountStage (solo para Account)
+    if (/\baccount\??\.stage\b/.test(line) || /\bacc\??\.stage\b/.test(line)) {
+      const before = transformed;
+      transformed = transformed.replace(/\b(account|acc)(\??)\.stage\b/g, '$1$2.accountStage');
+      if (before !== transformed) {
+        fixes.push({ line: lineNum, before, after: transformed, category: 'account-property' });
+        modified = true;
+      }
+    }
+    
+    // account.code → warning (decidir entre id o external.holdedId)
+    if (/\baccount\??\.code\b/.test(line)) {
+      warnings.push(`Line ${lineNum}: account.code no longer exists - use .id or .external?.holdedId`);
+    }
+    
+    // account.segment → warning
+    if (/\baccount\??\.segment\b/.test(line)) {
+      warnings.push(`Line ${lineNum}: account.segment removed - MANUAL FIX NEEDED`);
+    }
+    
+    // 5. Fix Order properties
+    // .totalEUR → .amount
+    if (/\border\??\.totalEUR\b/.test(line)) {
+      const before = transformed;
+      transformed = transformed.replace(/\border(\??)\.totalEUR\b/g, 'order$1.amount');
+      warnings.push(`Line ${lineNum}: order.totalEUR → order.amount (check .currency field)`);
+      if (before !== transformed) {
+        fixes.push({ line: lineNum, before, after: transformed, category: 'order-property' });
+        modified = true;
+      }
+    }
+    
+    return transformed;
+  });
+  
+  return {
+    filePath,
+    fixes,
+    warnings,
+    modified,
+  };
+}
+
+function processFile(filePath: string): FileResult {
+  const content = fs.readFileSync(filePath, 'utf8');
+  const result = transformFile(content, filePath);
+  
+  if (result.modified && !options.dryRun) {
+    if (options.createBackup) {
+      fs.writeFileSync(`${filePath}.bak`, content, 'utf8');
+    }
+    
+    const newContent = content.split('\n').map((line, index) => {
+      const fix = result.fixes.find(f => f.line === index + 1);
+      return fix ? fix.after : line;
+    }).join('\n');
+    
+    fs.writeFileSync(filePath, newContent, 'utf8');
+  }
+  
+  return result;
+}
+
+function generateReport(results: FileResult[]): string {
+  const modified = results.filter(r => r.modified);
+  const withWarnings = results.filter(r => r.warnings.length > 0);
+  const totalFixes = modified.reduce((sum, r) => sum + r.fixes.length, 0);
+  const totalWarnings = withWarnings.reduce((sum, r) => sum + r.warnings.length, 0);
+  
+  let report = `# SSOT v7 Error Fixes Report\n\n`;
+  report += `**Generated:** ${new Date().toISOString()}\n\n`;
+  report += `## Summary\n\n`;
+  report += `- **Files scanned:** ${results.length}\n`;
+  report += `- **Files modified:** ${modified.length}\n`;
+  report += `- **Total fixes:** ${totalFixes}\n`;
+  report += `- **Total warnings:** ${totalWarnings}\n`;
+  report += `- **Mode:** ${options.dryRun ? 'DRY RUN' : 'CHANGES APPLIED'}\n\n`;
+  
+  // Fixes by category
+  const byCategory: Record<string, number> = {};
+  modified.forEach(r => {
+    r.fixes.forEach(f => {
+      byCategory[f.category] = (byCategory[f.category] || 0) + 1;
+    });
+  });
+  
+  report += `## Fixes by Category\n\n`;
+  Object.entries(byCategory).forEach(([cat, count]) => {
+    report += `- **${cat}:** ${count}\n`;
+  });
+  report += `\n`;
+  
+  // Modified files
+  if (modified.length > 0) {
+    report += `## Modified Files\n\n`;
+    modified.forEach(r => {
+      const rel = path.relative(path.join(__dirname, '..'), r.filePath);
+      report += `### ${rel} (${r.fixes.length} fix${r.fixes.length > 1 ? 'es' : ''})\n\n`;
+      r.fixes.forEach(f => {
+        report += `**Line ${f.line}** [${f.category}]:\n\`\`\`diff\n- ${f.before}\n+ ${f.after}\n\`\`\`\n\n`;
+      });
+    });
+  }
+  
+  // Warnings
+  if (withWarnings.length > 0) {
+    report += `## ⚠️ Manual Review Required\n\n`;
+    withWarnings.forEach(r => {
+      if (r.warnings.length === 0) return;
+      const rel = path.relative(path.join(__dirname, '..'), r.filePath);
+      report += `### ${rel}\n\n`;
+      r.warnings.forEach(w => {
+        report += `- ${w}\n`;
+      });
+      report += `\n`;
+    });
+  }
+  
+  report += `## Next Steps\n\n`;
+  if (options.dryRun) {
+    report += `1. Review changes above\n`;
+    report += `2. Run without --dry-run to apply\n`;
+  } else {
+    report += `1. ✅ Review warnings above\n`;
+    report += `2. ✅ Fix manual cases\n`;
+    report += `3. ✅ Run: npx tsc --noEmit\n`;
+    report += `4. ✅ Test application\n`;
+  }
+  
+  return report;
+}
+
+async function main() {
+  const srcDir = path.join(__dirname, '..', 'src');
+  const scriptsDir = path.join(__dirname, '..', 'scripts');
+  
+  console.log(`📂 Scanning: src/ and scripts/\n`);
+  
+  const files = [
+    ...findSourceFiles(srcDir),
+    ...findSourceFiles(scriptsDir),
+  ];
+  
+  console.log(`📄 Found ${files.length} TypeScript files\n`);
+  
+  const results: FileResult[] = [];
+  let count = 0;
+  
+  for (const file of files) {
+    count++;
+    const result = processFile(file);
+    results.push(result);
+    
+    if (options.verbose || result.modified || result.warnings.length > 0) {
+      const rel = path.relative(path.join(__dirname, '..'), file);
+      const status = result.modified ? '✏️ ' : result.warnings.length > 0 ? '⚠️  ' : '  ';
+      const info = result.modified ? ` (${result.fixes.length} fixes)` : 
+                   result.warnings.length > 0 ? ` (${result.warnings.length} warnings)` : '';
+      console.log(`${status} ${rel}${info}`);
+    }
+    
+    if (!options.verbose && count % 10 === 0) {
+      process.stdout.write(`\r⏳ Processing... ${count}/${files.length}`);
+    }
+  }
+  
+  if (!options.verbose) console.log('\n');
+  
+  // Generate report
+  const reportPath = path.join(__dirname, '..', 'SSOT_V7_FIXES_REPORT.md');
+  const report = generateReport(results);
+  fs.writeFileSync(reportPath, report, 'utf8');
+  
+  // Summary
+  const modified = results.filter(r => r.modified);
+  const totalFixes = modified.reduce((sum, r) => sum + r.fixes.length, 0);
+  const totalWarnings = results.reduce((sum, r) => sum + r.warnings.length, 0);
+  
+  console.log(`\n${'='.repeat(50)}`);
+  console.log(`📊 SUMMARY`);
+  console.log(`${'='.repeat(50)}`);
+  console.log(`✅ Files scanned:   ${results.length}`);
+  console.log(`✏️  Files modified:  ${modified.length}`);
+  console.log(`🔄 Total fixes:     ${totalFixes}`);
+  console.log(`⚠️  Warnings:        ${totalWarnings}`);
+  console.log(`📝 Report:          ${reportPath}`);
+  
+  if (options.dryRun && totalFixes > 0) {
+    console.log(`\n💡 Dry run complete. Run without --dry-run to apply.`);
+  } else if (totalFixes > 0) {
+    console.log(`\n✅ Fixes applied!`);
+    console.log(`\n📋 Next: Review warnings in report, then run:`);
+    console.log(`   npx tsc --noEmit`);
+  } else {
+    console.log(`\n✨ No fixes needed!`);
+  }
+  
+  console.log('');
+}
+
+main().catch(error => {
+  console.error('❌ Error:', error);
+  process.exit(1);
+});

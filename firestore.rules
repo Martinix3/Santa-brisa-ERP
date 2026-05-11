@@ -1,0 +1,378 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Lectura por el equipo (ajusta según auth/claims)
+    function isTeam() { return request.auth != null; }
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.role == 'admin';
+    }
+
+    function validTaskClosure() {
+      let isClosing = request.resource.data.status == 'DONE' && resource.data.status != 'DONE';
+      let kind = request.resource.data.kind;
+      let outcome = request.resource.data.outcome;
+      return !isClosing || (
+        (kind == 'VISITA')
+          ? (
+              (outcome == 'NEXT_VISIT' && request.resource.data.nextEventId is string) ||
+              (outcome == 'ORDER_PLACED' && request.resource.data.orderId is string)
+            )
+          : (outcome in ['COMPLETED', 'CANCELLED'])
+      );
+    }
+
+    // Memoria si quieres leer desde cliente (opcional):
+    match /brain_memory/{userId} {
+      allow read: if isTeam(); // o limita al propio usuario
+      allow write: if false;   // solo la Function escribe
+      match /threads/{threadId}/turns/{turnId} {
+        allow read: if isTeam();
+        allow write: if false;
+      }
+    }
+
+    // Colecciones principales - Lectura para team, escritura según caso
+    match /companies/{companyId}/{collection}/{docId} {
+      allow read: if isTeam() && collection in [
+        'financeLinks',
+        'paymentLinks',
+        'expenses',
+        'dead_letters',
+        'materials',
+        'suppliers',
+        'distributors',
+        'incidents'
+      ];
+      allow write: if false;
+    }
+
+    // Colecciones principales - Lectura para team, escritura según caso
+    match /contacts/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /accounts/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /orders/{id} {
+      allow read: if isTeam();
+      allow write: if false; // Solo backend
+    }
+    
+    match /interactions/{id} {
+      allow read: if isTeam();
+      allow write: if isTeam(); // Permite crear interacciones
+    }
+    
+    match /events/{id} {
+      allow read: if isTeam();
+      allow write: if isTeam(); // Permite crear eventos
+    }
+    
+    match /shipments/{id} {
+      allow read: if isTeam();
+      allow write: if false; // Solo backend
+    }
+    
+    match /users/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /deliveryNotes/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /goodsReceipts/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /lots/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /lotGenealogy/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /onHand/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /stockMoves/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /productionOrders/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /reservations/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /billOfMaterials/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /items/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /inventory/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /products/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /materials/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /materialCosts/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /suppliers/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /distributors/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /financeLinks/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /paymentLinks/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /traceEvents/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /incidents/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /codeAliases/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /integrations/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /jobs/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /dead_letters/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+
+    match /expenses/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /parties/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /partyRoles/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /partyDuplicates/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /notes/{id} {
+      allow read: if isTeam();
+      allow write: if isTeam();
+    }
+    
+    match /qcProtocols/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /qcPlans/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /qcTests/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /qcParameters/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /protocolLogs/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /activations/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /plv_material/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /posTactics/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /posCostCatalog/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /marketingEvents/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /onlineCampaigns/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /influencerCollabs/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /webAnalytics/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /socialMetrics/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /ordersSellOut/{id} {
+      allow read: if isTeam();
+      allow write: if false;
+    }
+    
+    match /systemConfig/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+
+    // Sistema de Tareas - Permite leer/editar tareas propias, Admin ve todas
+    match /tasks/{id} {
+      allow read: if isTeam() && (isAdmin() || resource.data.assignedToId == request.auth.uid);
+      allow create: if isTeam();
+      allow update: if isTeam() && (isAdmin() || resource.data.assignedToId == request.auth.uid) && validTaskClosure();
+      allow delete: if isTeam() && (isAdmin() || resource.data.assignedToId == request.auth.uid);
+      
+      // Subcollections para subtasks y activities
+      match /subtasks/{subtaskId} {
+        allow read, write: if isTeam() && (isAdmin() || get(/databases/$(database)/documents/tasks/$(id)).data.assignedToId == request.auth.uid);
+      }
+      
+      match /activities/{activityId} {
+        allow read: if isTeam() && (isAdmin() || get(/databases/$(database)/documents/tasks/$(id)).data.assignedToId == request.auth.uid);
+        allow create: if isTeam();
+      }
+    }
+
+    // Campañas y Automatizaciones - Solo lectura para team, escritura restringida
+    match /campaigns/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    match /automations/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+    
+    // SSOT V2+ Collections
+    match /qualityReleases/{id} {
+      allow read: if isTeam();
+      allow write: if false; // Solo backend
+    }
+    
+    match /analysisLibrary/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin(); // Admin puede gestionar biblioteca
+    }
+    
+    match /protocolRuns/{id} {
+      allow read: if isTeam();
+      allow write: if false; // Solo backend
+    }
+    
+    match /complianceSchedule/{id} {
+      allow read: if isTeam();
+      allow write: if false; // Solo backend
+    }
+    
+    match /auditLog/{id} {
+      allow read: if isTeam();
+      allow write: if false; // Inmutable, solo backend
+    }
+    
+    match /documentVersions/{id} {
+      allow read: if isTeam();
+      allow write: if false; // Solo backend
+    }
+    
+    match /alerts/{id} {
+      allow read: if isTeam();
+      allow write: if false; // Solo backend
+    }
+  }
+}

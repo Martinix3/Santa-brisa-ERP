@@ -1,0 +1,3150 @@
+{
+  "count": 629,
+  "findings": [
+    {
+      "from": "src/app/ClientProviders.tsx",
+      "to": "src/app/providers/RealtimeProvider.tsx",
+      "spec": "@/app/providers/RealtimeProvider"
+    },
+    {
+      "from": "src/app/ClientProviders.tsx",
+      "to": "src/features/trace/index.tsx",
+      "spec": "@/features/trace"
+    },
+    {
+      "from": "src/app/ClientProviders.tsx",
+      "to": "src/features/quicklog/QuickLogOverlay.tsx",
+      "spec": "@/features/quicklog/QuickLogOverlay"
+    },
+    {
+      "from": "src/app/ClientProviders.tsx",
+      "to": "src/components/dev/DevUserSwitcher.tsx",
+      "spec": "@/components/dev/DevUserSwitcher"
+    },
+    {
+      "from": "src/app/layout.tsx",
+      "to": "src/components/monitoring/MonitoringBoot.tsx",
+      "spec": "@/components/monitoring/MonitoringBoot"
+    },
+    {
+      "from": "src/components/RealtimeToggle.tsx",
+      "to": "src/app/providers/RealtimeProvider.tsx",
+      "spec": "@/app/providers/RealtimeProvider"
+    },
+    {
+      "from": "src/domain/index.ts",
+      "to": "src/lib/codes.ts",
+      "spec": "@/lib/codes"
+    },
+    {
+      "from": "src/domain/ssot.audit.ts",
+      "to": "src/domain/index.ts",
+      "spec": "@/domain"
+    },
+    {
+      "from": "src/domain/ssot.audit.ts",
+      "to": "src/lib/codes.ts",
+      "spec": "@/lib/codes"
+    },
+    {
+      "from": "src/hooks/useDataFilters.ts",
+      "to": "src/hooks/useDebounce.ts",
+      "spec": "./useDebounce"
+    },
+    {
+      "from": "src/hooks/useLiveCollection.ts",
+      "to": "src/lib/firebaseClient.ts",
+      "spec": "@/lib/firebaseClient"
+    },
+    {
+      "from": "src/hooks/useSystemConfig.ts",
+      "to": "src/lib/firebaseClient.ts",
+      "spec": "@/lib/firebaseClient"
+    },
+    {
+      "from": "src/core/audit.ts",
+      "to": "src/lib/firebaseClient.ts",
+      "spec": "@/lib/firebaseClient"
+    },
+    {
+      "from": "src/core/audit.ts",
+      "to": "src/core/ctx.ts",
+      "spec": "@/core/ctx"
+    },
+    {
+      "from": "src/core/audit.ts",
+      "to": "src/core/repos/_utils.ts",
+      "spec": "./repos/_utils"
+    },
+    {
+      "from": "src/lib/dashboard-helpers.ts",
+      "to": "src/lib/time-range-helpers.ts",
+      "spec": "./time-range-helpers"
+    },
+    {
+      "from": "src/lib/dataprovider.tsx",
+      "to": "src/lib/dataprovider/actions.ts",
+      "spec": "./dataprovider/actions"
+    },
+    {
+      "from": "src/lib/dataprovider.tsx",
+      "to": "src/lib/firebaseClient.ts",
+      "spec": "@/lib/firebaseClient"
+    },
+    {
+      "from": "src/lib/dataprovider.tsx",
+      "to": "src/lib/stage-utils.ts",
+      "spec": "@/lib/stage-utils"
+    },
+    {
+      "from": "src/lib/distributor-helpers.ts",
+      "to": "src/lib/sales-helpers.ts",
+      "spec": "./sales-helpers"
+    },
+    {
+      "from": "src/lib/firebase-storage.ts",
+      "to": "src/lib/firebaseClient.ts",
+      "spec": "@/lib/firebaseClient"
+    },
+    {
+      "from": "src/lib/firebaseClient.ts",
+      "to": "src/config/firebaseWebApp.ts",
+      "spec": "@/config/firebaseWebApp"
+    },
+    {
+      "from": "src/lib/inventory.ts",
+      "to": "src/domain/qc-status.ts",
+      "spec": "@/domain/qc-status"
+    },
+    {
+      "from": "src/lib/pipeline-helpers.ts",
+      "to": "src/components/pipeline/types.ts",
+      "spec": "@/components/pipeline/types"
+    },
+    {
+      "from": "src/lib/pipeline-helpers.ts",
+      "to": "src/lib/stage-utils.ts",
+      "spec": "@/lib/stage-utils"
+    },
+    {
+      "from": "src/server/auth.ts",
+      "to": "src/lib/authz.ts",
+      "spec": "@/lib/authz"
+    },
+    {
+      "from": "src/app/(app)/layout.tsx",
+      "to": "src/features/quicklog/QuickLogOverlay.tsx",
+      "spec": "@/features/quicklog/QuickLogOverlay"
+    },
+    {
+      "from": "src/app/(app)/layout.tsx",
+      "to": "src/lib/authz.ts",
+      "spec": "@/lib/authz"
+    },
+    {
+      "from": "src/app/(app)/layout.tsx",
+      "to": "src/app/loading.tsx",
+      "spec": "@/app/loading"
+    },
+    {
+      "from": "src/app/(app)/layout.tsx",
+      "to": "src/components/RealtimeToggle.tsx",
+      "spec": "@/components/RealtimeToggle"
+    },
+    {
+      "from": "src/app/(app)/layout.tsx",
+      "to": "src/components/ui/PersistenceToggle.tsx",
+      "spec": "@/components/ui/PersistenceToggle"
+    },
+    {
+      "from": "src/app/(app)/layout.tsx",
+      "to": "src/components/alerts/AlertsProvider.tsx",
+      "spec": "@/components/alerts/AlertsProvider"
+    },
+    {
+      "from": "src/app/login/page.tsx",
+      "to": "src/components/auth/AuthForm.tsx",
+      "spec": "@/components/auth/AuthForm"
+    },
+    {
+      "from": "src/components/accounts/AccountCard.tsx",
+      "to": "src/types/accounts.ts",
+      "spec": "@/types/accounts"
+    },
+    {
+      "from": "src/components/accounts/AccountDrawer.tsx",
+      "to": "src/components/accounts/AccountKPIs.tsx",
+      "spec": "./AccountKPIs"
+    },
+    {
+      "from": "src/components/accounts/AccountDrawer.tsx",
+      "to": "src/components/accounts/AccountTimeline.tsx",
+      "spec": "./AccountTimeline"
+    },
+    {
+      "from": "src/components/accounts/AccountDrawer.tsx",
+      "to": "src/components/accounts/AccountOrdersTab.tsx",
+      "spec": "./AccountOrdersTab"
+    },
+    {
+      "from": "src/components/accounts/AccountDrawer.tsx",
+      "to": "src/components/accounts/AccountTasksTab.tsx",
+      "spec": "./AccountTasksTab"
+    },
+    {
+      "from": "src/components/accounts/AccountDrawer.tsx",
+      "to": "src/ui/drawers/drawer-registry.tsx",
+      "spec": "@/ui/drawers/drawer-registry"
+    },
+    {
+      "from": "src/components/accounts/AccountDrawer.tsx",
+      "to": "src/components/accounts/QuickLogBar.tsx",
+      "spec": "@/components/accounts/QuickLogBar"
+    },
+    {
+      "from": "src/components/accounts/AccountKPIs.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "@/components/dashboards/shared/KpiCard"
+    },
+    {
+      "from": "src/components/accounts/QuickLogBar.tsx",
+      "to": "src/features/quicklog/components/QuickLogConfirmation.tsx",
+      "spec": "@/features/quicklog/components/QuickLogConfirmation"
+    },
+    {
+      "from": "src/components/admin/UserDrawer.tsx",
+      "to": "src/config/user-roles.ts",
+      "spec": "@/config/user-roles"
+    },
+    {
+      "from": "src/components/admin/UserDrawer.tsx",
+      "to": "src/app/(app)/admin/users/actions.ts",
+      "spec": "@/app/(app)/admin/users/actions"
+    },
+    {
+      "from": "src/components/admin/UserDrawer.tsx",
+      "to": "src/components/admin/UserGeneralTab.tsx",
+      "spec": "./UserGeneralTab"
+    },
+    {
+      "from": "src/components/admin/UserDrawer.tsx",
+      "to": "src/components/admin/UserPermissionsTab.tsx",
+      "spec": "./UserPermissionsTab"
+    },
+    {
+      "from": "src/components/admin/UserDrawer.tsx",
+      "to": "src/components/admin/UserTerritoryTab.tsx",
+      "spec": "./UserTerritoryTab"
+    },
+    {
+      "from": "src/components/admin/UserDrawer.tsx",
+      "to": "src/components/admin/UserDistributorsTab.tsx",
+      "spec": "./UserDistributorsTab"
+    },
+    {
+      "from": "src/components/admin/UserDrawer.tsx",
+      "to": "src/components/admin/UserKPIsTab.tsx",
+      "spec": "./UserKPIsTab"
+    },
+    {
+      "from": "src/components/admin/UserDrawer.tsx",
+      "to": "src/components/admin/UserPreferencesTab.tsx",
+      "spec": "./UserPreferencesTab"
+    },
+    {
+      "from": "src/components/admin/UserGeneralTab.tsx",
+      "to": "src/config/user-roles.ts",
+      "spec": "@/config/user-roles"
+    },
+    {
+      "from": "src/components/admin/UserPermissionsTab.tsx",
+      "to": "src/config/user-roles.ts",
+      "spec": "@/config/user-roles"
+    },
+    {
+      "from": "src/components/alerts/AlertsWidget.tsx",
+      "to": "src/components/alerts/AlertsProvider.tsx",
+      "spec": "./AlertsProvider"
+    },
+    {
+      "from": "src/components/analytics/AnalyticsContent.tsx",
+      "to": "src/types/analytics.ts",
+      "spec": "@/types/analytics"
+    },
+    {
+      "from": "src/components/bom/BomCard.tsx",
+      "to": "src/types/bom.ts",
+      "spec": "@/types/bom"
+    },
+    {
+      "from": "src/components/bom/BomContent.tsx",
+      "to": "src/components/shared/DataToolbar.tsx",
+      "spec": "@/components/shared/DataToolbar"
+    },
+    {
+      "from": "src/components/bom/BomContent.tsx",
+      "to": "src/hooks/useDataFilters.ts",
+      "spec": "@/hooks/useDataFilters"
+    },
+    {
+      "from": "src/components/bom/BomContent.tsx",
+      "to": "src/components/bom/BomCard.tsx",
+      "spec": "./BomCard"
+    },
+    {
+      "from": "src/components/bom/BomContent.tsx",
+      "to": "src/types/bom.ts",
+      "spec": "@/types/bom"
+    },
+    {
+      "from": "src/components/clientes/ClientesContent.tsx",
+      "to": "src/hooks/useDataFilters.ts",
+      "spec": "@/hooks/useDataFilters"
+    },
+    {
+      "from": "src/components/clientes/ClientesContent.tsx",
+      "to": "src/components/shared/DataToolbar.tsx",
+      "spec": "@/components/shared/DataToolbar"
+    },
+    {
+      "from": "src/components/clientes/ClientesContent.tsx",
+      "to": "src/components/accounts/AccountCard.tsx",
+      "spec": "@/components/accounts/AccountCard"
+    },
+    {
+      "from": "src/components/clientes/ClientesContent.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "@/components/dashboards/shared/KpiCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardAdmin.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "./shared/KpiCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardAdmin.tsx",
+      "to": "src/components/dashboards/shared/ChartCard.tsx",
+      "spec": "./shared/ChartCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardAdmin.tsx",
+      "to": "src/components/dashboards/shared/AlertsCard.tsx",
+      "spec": "./shared/AlertsCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardAdmin.tsx",
+      "to": "src/components/widgets/MiniCalendarCollapsible.tsx",
+      "spec": "@/components/widgets/MiniCalendarCollapsible"
+    },
+    {
+      "from": "src/components/dashboards/DashboardAdmin.tsx",
+      "to": "src/components/widgets/TasksWidget.tsx",
+      "spec": "@/components/widgets/TasksWidget"
+    },
+    {
+      "from": "src/components/dashboards/DashboardAdmin.tsx",
+      "to": "src/components/widgets/SmartMailsWidget.tsx",
+      "spec": "@/components/widgets/SmartMailsWidget"
+    },
+    {
+      "from": "src/components/dashboards/DashboardDistributor.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "./shared/KpiCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardDistributor.tsx",
+      "to": "src/components/dashboards/shared/ChartCard.tsx",
+      "spec": "./shared/ChartCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardDistributor.tsx",
+      "to": "src/components/dashboards/shared/AlertsCard.tsx",
+      "spec": "./shared/AlertsCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardManager.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "./shared/KpiCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardManager.tsx",
+      "to": "src/components/dashboards/shared/ChartCard.tsx",
+      "spec": "./shared/ChartCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardManager.tsx",
+      "to": "src/components/dashboards/shared/AlertsCard.tsx",
+      "spec": "./shared/AlertsCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardManager.tsx",
+      "to": "src/components/dashboards/QualityWidget.tsx",
+      "spec": "./QualityWidget"
+    },
+    {
+      "from": "src/components/dashboards/DashboardMarketing_bueno.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "./shared/KpiCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardMarketing_bueno.tsx",
+      "to": "src/components/dashboards/shared/ChartCard.tsx",
+      "spec": "./shared/ChartCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardMarketing_bueno.tsx",
+      "to": "src/components/dashboards/shared/ActivityFeed.tsx",
+      "spec": "./shared/ActivityFeed"
+    },
+    {
+      "from": "src/components/dashboards/DashboardMarketing_bueno.tsx",
+      "to": "src/components/dashboards/shared/AlertsCard.tsx",
+      "spec": "./shared/AlertsCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardOps_bueno.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "./shared/KpiCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardOps_bueno.tsx",
+      "to": "src/components/dashboards/shared/AlertsCard.tsx",
+      "spec": "./shared/AlertsCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardSales.tsx",
+      "to": "src/components/dashboards/SalesDashboardClient.tsx",
+      "spec": "./SalesDashboardClient"
+    },
+    {
+      "from": "src/components/dashboards/DashboardTechnical.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "./shared/KpiCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardTechnical.tsx",
+      "to": "src/components/dashboards/shared/ChartCard.tsx",
+      "spec": "./shared/ChartCard"
+    },
+    {
+      "from": "src/components/dashboards/DashboardTechnical.tsx",
+      "to": "src/components/dashboards/shared/AlertsCard.tsx",
+      "spec": "./shared/AlertsCard"
+    },
+    {
+      "from": "src/components/dashboards/SalesDashboardClient.tsx",
+      "to": "src/components/widgets/KpiWidget.tsx",
+      "spec": "@/components/widgets/KpiWidget"
+    },
+    {
+      "from": "src/components/dashboards/SalesDashboardClient.tsx",
+      "to": "src/components/widgets/AlertsWidget.tsx",
+      "spec": "@/components/widgets/AlertsWidget"
+    },
+    {
+      "from": "src/components/dashboards/SalesDashboardClient.tsx",
+      "to": "src/components/widgets/ProjectsCircleWidget.tsx",
+      "spec": "@/components/widgets/ProjectsCircleWidget"
+    },
+    {
+      "from": "src/components/dashboards/SalesDashboardClient.tsx",
+      "to": "src/components/widgets/MiniCalendarCollapsible.tsx",
+      "spec": "@/components/widgets/MiniCalendarCollapsible"
+    },
+    {
+      "from": "src/components/dashboards/SalesDashboardClient.tsx",
+      "to": "src/components/widgets/TasksWidget.tsx",
+      "spec": "@/components/widgets/TasksWidget"
+    },
+    {
+      "from": "src/components/distributors/DistributorCard.tsx",
+      "to": "src/types/distributors.ts",
+      "spec": "@/types/distributors"
+    },
+    {
+      "from": "src/components/distributors/DistributorsContent.tsx",
+      "to": "src/types/distributors.ts",
+      "spec": "@/types/distributors"
+    },
+    {
+      "from": "src/components/distributors/DistributorsContent.tsx",
+      "to": "src/hooks/useDataFilters.ts",
+      "spec": "@/hooks/useDataFilters"
+    },
+    {
+      "from": "src/components/distributors/DistributorsContent.tsx",
+      "to": "src/components/shared/DataToolbar.tsx",
+      "spec": "@/components/shared/DataToolbar"
+    },
+    {
+      "from": "src/components/distributors/DistributorsContent.tsx",
+      "to": "src/components/distributors/DistributorCard.tsx",
+      "spec": "./DistributorCard"
+    },
+    {
+      "from": "src/components/gemini/GeminiDashboard.tsx",
+      "to": "src/server/gemini/recommendation-engine.ts",
+      "spec": "@/server/gemini/recommendation-engine"
+    },
+    {
+      "from": "src/components/gemini/GeminiDashboard.tsx",
+      "to": "src/server/gemini/analyzers/stock-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/stock-analyzer"
+    },
+    {
+      "from": "src/components/gemini/GeminiDashboard.tsx",
+      "to": "src/server/gemini/analyzers/sales-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/sales-analyzer"
+    },
+    {
+      "from": "src/components/gemini/GeminiDashboard.tsx",
+      "to": "src/server/gemini/analyzers/marketing-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/marketing-analyzer"
+    },
+    {
+      "from": "src/components/gemini/GeminiDashboard.tsx",
+      "to": "src/server/gemini/analyzers/production-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/production-analyzer"
+    },
+    {
+      "from": "src/components/gemini/GeminiDashboard.tsx",
+      "to": "src/server/gemini/analyzers/code-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/code-analyzer"
+    },
+    {
+      "from": "src/components/gemini/GeminiDashboard.tsx",
+      "to": "src/server/gemini/analyzers/uiux-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/uiux-analyzer"
+    },
+    {
+      "from": "src/components/monitoring/MonitoringBoot.tsx",
+      "to": "src/components/monitoring/runtime-capture.ts",
+      "spec": "./runtime-capture"
+    },
+    {
+      "from": "src/components/orders/ChangeStatusModal.tsx",
+      "to": "src/types/orders.ts",
+      "spec": "@/types/orders"
+    },
+    {
+      "from": "src/components/orders/ChangeStatusModal.tsx",
+      "to": "src/types/orders.ts",
+      "spec": "@/types/orders"
+    },
+    {
+      "from": "src/components/orders/PedidosContent.tsx",
+      "to": "src/types/orders.ts",
+      "spec": "@/types/orders"
+    },
+    {
+      "from": "src/components/orders/PedidosContent.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "@/components/dashboards/shared/KpiCard"
+    },
+    {
+      "from": "src/components/orders/PedidosContent.tsx",
+      "to": "src/components/dashboards/shared/AlertsCard.tsx",
+      "spec": "@/components/dashboards/shared/AlertsCard"
+    },
+    {
+      "from": "src/components/orders/PedidosContent.tsx",
+      "to": "src/components/ui/OrderBadges.tsx",
+      "spec": "@/components/ui/OrderBadges"
+    },
+    {
+      "from": "src/components/orders/PedidosContent.tsx",
+      "to": "src/components/orders/OrderRowQuickActions.tsx",
+      "spec": "@/components/orders/OrderRowQuickActions"
+    },
+    {
+      "from": "src/components/orders/PedidosContent.tsx",
+      "to": "src/components/orders/OrderCompleteness.tsx",
+      "spec": "@/components/orders/OrderCompleteness"
+    },
+    {
+      "from": "src/components/orders/PedidosContent.tsx",
+      "to": "src/components/orders/OrderAdvancedFilters.tsx",
+      "spec": "@/components/orders/OrderAdvancedFilters"
+    },
+    {
+      "from": "src/components/orders/PedidosContent.tsx",
+      "to": "src/ui/drawers/drawer-registry.tsx",
+      "spec": "@/ui/drawers/drawer-registry"
+    },
+    {
+      "from": "src/components/pipeline/PipelineBoard.tsx",
+      "to": "src/ui/drawers/drawer-registry.tsx",
+      "spec": "@/ui/drawers/drawer-registry"
+    },
+    {
+      "from": "src/components/pipeline/PipelineBoard.tsx",
+      "to": "src/components/pipeline/types.ts",
+      "spec": "./types"
+    },
+    {
+      "from": "src/components/pipeline/PipelineList.tsx",
+      "to": "src/components/pipeline/types.ts",
+      "spec": "./types"
+    },
+    {
+      "from": "src/components/quality/GeminiAlertsCard.tsx",
+      "to": "src/server/gemini/analyzers/quality-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/quality-analyzer"
+    },
+    {
+      "from": "src/components/quality/QcPlanEditorDrawer.tsx",
+      "to": "src/types/quality.ts",
+      "spec": "@/types/quality"
+    },
+    {
+      "from": "src/components/quality/ReleaseLotDrawer.tsx",
+      "to": "src/components/ui/tabs.tsx",
+      "spec": "@/components/ui/tabs"
+    },
+    {
+      "from": "src/components/quality/ReleaseLotDrawer.tsx",
+      "to": "src/components/warehouse/PhotoUploadButton.tsx",
+      "spec": "@/components/warehouse/PhotoUploadButton"
+    },
+    {
+      "from": "src/components/quality/ReleaseLotDrawer.tsx",
+      "to": "src/components/quality/QualityBadge.tsx",
+      "spec": "./QualityBadge"
+    },
+    {
+      "from": "src/components/quality/ReleaseLotDrawer.tsx",
+      "to": "src/components/quality/QcTestCard.tsx",
+      "spec": "./QcTestCard"
+    },
+    {
+      "from": "src/components/quality/ReleaseLotDrawer.tsx",
+      "to": "src/lib/firebase-storage.ts",
+      "spec": "@/lib/firebase-storage"
+    },
+    {
+      "from": "src/components/quality/ReleaseLotDrawer.tsx",
+      "to": "src/types/quality.ts",
+      "spec": "@/types/quality"
+    },
+    {
+      "from": "src/components/quality-v2/LotQcDrawer.tsx",
+      "to": "src/components/quality-v2/QcResultsForm.tsx",
+      "spec": "@/components/quality-v2/QcResultsForm"
+    },
+    {
+      "from": "src/components/quality-v2/LotQcDrawer.tsx",
+      "to": "src/components/quality-v2/LotTraceabilityPanel.tsx",
+      "spec": "@/components/quality-v2/LotTraceabilityPanel"
+    },
+    {
+      "from": "src/components/quality-v2/LotQcDrawer.tsx",
+      "to": "src/components/quality-v2/LotDocumentsPanel.tsx",
+      "spec": "@/components/quality-v2/LotDocumentsPanel"
+    },
+    {
+      "from": "src/components/warehouse/CategorySelector.tsx",
+      "to": "src/i18n/warehouse.es.ts",
+      "spec": "@/i18n/warehouse.es"
+    },
+    {
+      "from": "src/components/warehouse/PhotoUploadButton.tsx",
+      "to": "src/hooks/useCameraAccess.ts",
+      "spec": "@/hooks/useCameraAccess"
+    },
+    {
+      "from": "src/components/warehouse/PhotoUploadButton.tsx",
+      "to": "src/i18n/warehouse.es.ts",
+      "spec": "@/i18n/warehouse.es"
+    },
+    {
+      "from": "src/components/warehouse/ProductSearchCombobox.tsx",
+      "to": "src/i18n/warehouse.es.ts",
+      "spec": "@/i18n/warehouse.es"
+    },
+    {
+      "from": "src/components/warehouse/ProductSearchCombobox.tsx",
+      "to": "src/components/warehouse/CategorySelector.tsx",
+      "spec": "./CategorySelector"
+    },
+    {
+      "from": "src/components/warehouse/SupplierSearchCombobox.tsx",
+      "to": "src/i18n/warehouse.es.ts",
+      "spec": "@/i18n/warehouse.es"
+    },
+    {
+      "from": "src/components/tasks/CalendarioContent.tsx",
+      "to": "src/components/tasks/TaskCard.tsx",
+      "spec": "./TaskCard"
+    },
+    {
+      "from": "src/components/tasks/CalendarioContent.tsx",
+      "to": "src/features/tasks/components/TaskDrawer.tsx",
+      "spec": "@/features/tasks/components/TaskDrawer"
+    },
+    {
+      "from": "src/components/tasks/CalendarioContent.tsx",
+      "to": "src/features/tasks/components/CalendarGrid.tsx",
+      "spec": "@/features/tasks/components/CalendarGrid"
+    },
+    {
+      "from": "src/components/tasks/CalendarioContent.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "@/components/dashboards/shared/KpiCard"
+    },
+    {
+      "from": "src/components/tasks/CalendarioContent.tsx",
+      "to": "src/components/shared/DataToolbar.tsx",
+      "spec": "@/components/shared/DataToolbar"
+    },
+    {
+      "from": "src/components/tasks/CalendarioContent.tsx",
+      "to": "src/hooks/useDataFilters.ts",
+      "spec": "@/hooks/useDataFilters"
+    },
+    {
+      "from": "src/components/tasks/CalendarioContent.tsx",
+      "to": "src/features/tasks/actions.ts",
+      "spec": "@/features/tasks/actions"
+    },
+    {
+      "from": "src/components/tasks/CalendarioContent.tsx",
+      "to": "src/types/tasks.ts",
+      "spec": "@/types/tasks"
+    },
+    {
+      "from": "src/components/tasks/TaskCard.tsx",
+      "to": "src/types/tasks.ts",
+      "spec": "@/types/tasks"
+    },
+    {
+      "from": "src/domain/zod/task.spec.ts",
+      "to": "src/domain/zod/task.ts",
+      "spec": "./task"
+    },
+    {
+      "from": "src/components/widgets/AlertsWidget.tsx",
+      "to": "src/ui/drawers/drawer-registry.tsx",
+      "spec": "@/ui/drawers/drawer-registry"
+    },
+    {
+      "from": "src/components/widgets/AlertsWidget.tsx",
+      "to": "src/components/widgets/WidgetFrame.tsx",
+      "spec": "./WidgetFrame"
+    },
+    {
+      "from": "src/components/widgets/KpiWidget.tsx",
+      "to": "src/ui/drawers/drawer-registry.tsx",
+      "spec": "@/ui/drawers/drawer-registry"
+    },
+    {
+      "from": "src/components/widgets/MiniCalendarCollapsible.tsx",
+      "to": "src/components/widgets/WidgetFrame.tsx",
+      "spec": "./WidgetFrame"
+    },
+    {
+      "from": "src/components/widgets/ProjectsCircleWidget.tsx",
+      "to": "src/ui/drawers/drawer-registry.tsx",
+      "spec": "@/ui/drawers/drawer-registry"
+    },
+    {
+      "from": "src/components/widgets/SmartMailsWidget.tsx",
+      "to": "src/components/widgets/WidgetFrame.tsx",
+      "spec": "./WidgetFrame"
+    },
+    {
+      "from": "src/components/widgets/SmartNotesWidget.tsx",
+      "to": "src/components/widgets/WidgetFrame.tsx",
+      "spec": "./WidgetFrame"
+    },
+    {
+      "from": "src/components/widgets/TasksWidget.tsx",
+      "to": "src/ui/drawers/drawer-registry.tsx",
+      "spec": "@/ui/drawers/drawer-registry"
+    },
+    {
+      "from": "src/components/widgets/TasksWidget.tsx",
+      "to": "src/components/widgets/WidgetFrame.tsx",
+      "spec": "./WidgetFrame"
+    },
+    {
+      "from": "src/features/projects/actions.ts",
+      "to": "src/domain/zod/project.ts",
+      "spec": "@/domain/zod/project"
+    },
+    {
+      "from": "src/features/quicklog/QuickLogNotebook.tsx",
+      "to": "src/features/quicklog/components/QuickLogConfirmation.tsx",
+      "spec": "./components/QuickLogConfirmation"
+    },
+    {
+      "from": "src/features/quicklog/QuickLogNotebook.tsx",
+      "to": "src/features/quicklog/components/VoiceRecorder.tsx",
+      "spec": "./components/VoiceRecorder"
+    },
+    {
+      "from": "src/features/quicklog/QuickLogOverlay.tsx",
+      "to": "src/features/quicklog/QuickLogNotebook.tsx",
+      "spec": "./QuickLogNotebook"
+    },
+    {
+      "from": "src/features/tasks/actions.ts",
+      "to": "src/domain/zod/task.ts",
+      "spec": "@/domain/zod/task"
+    },
+    {
+      "from": "src/core/repos/_utils.ts",
+      "to": "src/core/ctx.ts",
+      "spec": "@/core/ctx"
+    },
+    {
+      "from": "src/features/trace/TraceProvider.tsx",
+      "to": "src/lib/trace/FirestoreTracer.ts",
+      "spec": "@/lib/trace/FirestoreTracer"
+    },
+    {
+      "from": "src/features/trace/TraceUI.tsx",
+      "to": "src/features/trace/TraceProvider.tsx",
+      "spec": "./TraceProvider"
+    },
+    {
+      "from": "src/features/trace/TraceUI.tsx",
+      "to": "src/lib/trace/FirestoreTracer.ts",
+      "spec": "@/lib/trace/FirestoreTracer"
+    },
+    {
+      "from": "src/features/trace/index.tsx",
+      "to": "src/features/trace/TraceProvider.tsx",
+      "spec": "./TraceProvider"
+    },
+    {
+      "from": "src/features/trace/index.tsx",
+      "to": "src/features/trace/TraceUI.tsx",
+      "spec": "./TraceUI"
+    },
+    {
+      "from": "src/lib/data-quality/engine.ts",
+      "to": "src/lib/data-quality/types.ts",
+      "spec": "./types"
+    },
+    {
+      "from": "src/lib/data-quality/engine.ts",
+      "to": "src/lib/data-quality/rules/R1_1_MissingStandardCost.ts",
+      "spec": "./rules/R1_1_MissingStandardCost"
+    },
+    {
+      "from": "src/lib/santa-brain/gemini-client.ts",
+      "to": "src/lib/resilience/circuit-breaker.ts",
+      "spec": "@/lib/resilience/circuit-breaker"
+    },
+    {
+      "from": "src/server/integrations/base-integration.ts",
+      "to": "src/server/integrations/integration-jobs.ts",
+      "spec": "./integration-jobs"
+    },
+    {
+      "from": "src/server/integrations/base-integration.ts",
+      "to": "src/server/integrations/integration-logger.ts",
+      "spec": "./integration-logger"
+    },
+    {
+      "from": "src/server/gemini/analyzer-orchestrator.ts",
+      "to": "src/server/gemini/analyzers/base-analyzer.ts",
+      "spec": "./analyzers/base-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzer-orchestrator.ts",
+      "to": "src/server/gemini/analyzers/sales-analyzer.ts",
+      "spec": "./analyzers/sales-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzer-orchestrator.ts",
+      "to": "src/server/gemini/analyzers/quality-analyzer.ts",
+      "spec": "./analyzers/quality-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzer-orchestrator.ts",
+      "to": "src/server/gemini/analyzers/warehouse-analyzer.ts",
+      "spec": "./analyzers/warehouse-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzer-orchestrator.ts",
+      "to": "src/server/gemini/analyzers/bom-analyzer.ts",
+      "spec": "./analyzers/bom-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzer-orchestrator.ts",
+      "to": "src/server/gemini/analyzers/production-analyzer.ts",
+      "spec": "./analyzers/production-analyzer"
+    },
+    {
+      "from": "src/server/gemini/gemini-client.ts",
+      "to": "src/server/gemini/model-router.ts",
+      "spec": "./model-router"
+    },
+    {
+      "from": "src/server/gemini/intelligence-hub.ts",
+      "to": "src/server/gemini/analyzers/email-analyzer.ts",
+      "spec": "./analyzers/email-analyzer"
+    },
+    {
+      "from": "src/server/gemini/intelligence-hub.ts",
+      "to": "src/server/integrations/gmail/types.ts",
+      "spec": "@/server/integrations/gmail/types"
+    },
+    {
+      "from": "src/server/gemini/recommendation-engine.ts",
+      "to": "src/server/gemini/gemini-client.ts",
+      "spec": "./gemini-client"
+    },
+    {
+      "from": "src/server/queue/dispatcher.ts",
+      "to": "src/server/queue/types.ts",
+      "spec": "./types"
+    },
+    {
+      "from": "src/server/queue/dispatcher.ts",
+      "to": "src/server/queue/queue.ts",
+      "spec": "./queue"
+    },
+    {
+      "from": "src/server/queue/queue.ts",
+      "to": "src/server/queue/types.ts",
+      "spec": "./types"
+    },
+    {
+      "from": "src/server/queue/runner.local.ts",
+      "to": "src/server/queue/dispatcher.ts",
+      "spec": "./dispatcher"
+    },
+    {
+      "from": "src/server/queue/runner.local.ts",
+      "to": "src/server/queue/types.ts",
+      "spec": "./types"
+    },
+    {
+      "from": "src/server/actions/ai-insights.ts",
+      "to": "src/server/gemini/analyzers/stock-analyzer.ts",
+      "spec": "../gemini/analyzers/stock-analyzer"
+    },
+    {
+      "from": "src/server/actions/ai-insights.ts",
+      "to": "src/server/gemini/analyzers/sales-analyzer.ts",
+      "spec": "../gemini/analyzers/sales-analyzer"
+    },
+    {
+      "from": "src/server/actions/ai-insights.ts",
+      "to": "src/server/gemini/analyzers/marketing-analyzer.ts",
+      "spec": "../gemini/analyzers/marketing-analyzer"
+    },
+    {
+      "from": "src/server/actions/ai-insights.ts",
+      "to": "src/server/gemini/analyzers/production-analyzer.ts",
+      "spec": "../gemini/analyzers/production-analyzer"
+    },
+    {
+      "from": "src/server/actions/ai-insights.ts",
+      "to": "src/server/gemini/analyzers/bom-analyzer.ts",
+      "spec": "../gemini/analyzers/bom-analyzer"
+    },
+    {
+      "from": "src/server/actions/ai-insights.ts",
+      "to": "src/server/gemini/analyzers/code-analyzer.ts",
+      "spec": "../gemini/analyzers/code-analyzer"
+    },
+    {
+      "from": "src/server/actions/ai-insights.ts",
+      "to": "src/server/gemini/analyzers/uiux-analyzer.ts",
+      "spec": "../gemini/analyzers/uiux-analyzer"
+    },
+    {
+      "from": "src/server/actions/analytics.ts",
+      "to": "src/types/analytics.ts",
+      "spec": "@/types/analytics"
+    },
+    {
+      "from": "src/server/actions/analyzer-panel.ts",
+      "to": "src/server/gemini/analyzers/sales-analyzer.ts",
+      "spec": "../gemini/analyzers/sales-analyzer"
+    },
+    {
+      "from": "src/server/actions/analyzer-panel.ts",
+      "to": "src/server/gemini/analyzers/marketing-analyzer.ts",
+      "spec": "../gemini/analyzers/marketing-analyzer"
+    },
+    {
+      "from": "src/server/actions/analyzer-panel.ts",
+      "to": "src/server/gemini/analyzers/production-analyzer.ts",
+      "spec": "../gemini/analyzers/production-analyzer"
+    },
+    {
+      "from": "src/server/actions/analyzer-panel.ts",
+      "to": "src/server/gemini/analyzers/quality-analyzer.ts",
+      "spec": "../gemini/analyzers/quality-analyzer"
+    },
+    {
+      "from": "src/server/actions/analyzer-panel.ts",
+      "to": "src/server/gemini/analyzers/stock-analyzer.ts",
+      "spec": "../gemini/analyzers/stock-analyzer"
+    },
+    {
+      "from": "src/server/actions/analyzer-panel.ts",
+      "to": "src/server/gemini/analyzers/warehouse-analyzer.ts",
+      "spec": "../gemini/analyzers/warehouse-analyzer"
+    },
+    {
+      "from": "src/server/actions/analyzer-panel.ts",
+      "to": "src/server/gemini/analyzers/bom-analyzer.ts",
+      "spec": "../gemini/analyzers/bom-analyzer"
+    },
+    {
+      "from": "src/server/actions/analyzer-panel.ts",
+      "to": "src/server/gemini/analyzers/code-analyzer.ts",
+      "spec": "../gemini/analyzers/code-analyzer"
+    },
+    {
+      "from": "src/server/actions/analyzer-panel.ts",
+      "to": "src/server/gemini/analyzers/document-analyzer.ts",
+      "spec": "../gemini/analyzers/document-analyzer"
+    },
+    {
+      "from": "src/server/actions/analyzer-panel.ts",
+      "to": "src/server/gemini/analyzers/email-analyzer.ts",
+      "spec": "../gemini/analyzers/email-analyzer"
+    },
+    {
+      "from": "src/server/actions/analyzer-panel.ts",
+      "to": "src/server/gemini/analyzers/quicklog-analyzer.ts",
+      "spec": "../gemini/analyzers/quicklog-analyzer"
+    },
+    {
+      "from": "src/server/actions/analyzer-panel.ts",
+      "to": "src/server/gemini/analyzers/uiux-analyzer.ts",
+      "spec": "../gemini/analyzers/uiux-analyzer"
+    },
+    {
+      "from": "src/server/actions/bom.actions.ts",
+      "to": "src/domain/uom.ts",
+      "spec": "@/domain/uom"
+    },
+    {
+      "from": "src/server/actions/bom.actions.ts",
+      "to": "src/types/bom.ts",
+      "spec": "@/types/bom"
+    },
+    {
+      "from": "src/server/actions/brain.actions.ts",
+      "to": "src/domain/brain.ts",
+      "spec": "@/domain/brain"
+    },
+    {
+      "from": "src/server/actions/campaigns.actions.ts",
+      "to": "src/server/automation/automation-engine.ts",
+      "spec": "@/server/automation/automation-engine"
+    },
+    {
+      "from": "src/server/actions/campaigns.actions.ts",
+      "to": "src/domain/campaigns.ts",
+      "spec": "@/domain/campaigns"
+    },
+    {
+      "from": "src/server/actions/dashboard-admin.ts",
+      "to": "src/config/dashboard-config.ts",
+      "spec": "@/config/dashboard-config"
+    },
+    {
+      "from": "src/server/actions/dashboard-distributor.ts",
+      "to": "src/config/dashboard-config.ts",
+      "spec": "@/config/dashboard-config"
+    },
+    {
+      "from": "src/server/actions/dashboard-manager.ts",
+      "to": "src/config/dashboard-config.ts",
+      "spec": "@/config/dashboard-config"
+    },
+    {
+      "from": "src/server/actions/dashboard-marketing.ts",
+      "to": "src/config/dashboard-config.ts",
+      "spec": "@/config/dashboard-config"
+    },
+    {
+      "from": "src/server/actions/dashboard-ops.ts",
+      "to": "src/config/dashboard-config.ts",
+      "spec": "@/config/dashboard-config"
+    },
+    {
+      "from": "src/server/actions/dashboard-sales.ts",
+      "to": "src/config/dashboard-config.ts",
+      "spec": "@/config/dashboard-config"
+    },
+    {
+      "from": "src/server/actions/dashboard-sales.ts",
+      "to": "src/lib/dashboard-adapters.ts",
+      "spec": "@/lib/dashboard-adapters"
+    },
+    {
+      "from": "src/server/actions/dashboard-sales.ts",
+      "to": "src/lib/dashboard-adapters.ts",
+      "spec": "@/lib/dashboard-adapters"
+    },
+    {
+      "from": "src/server/actions/dashboard-technical.ts",
+      "to": "src/config/dashboard-config.ts",
+      "spec": "@/config/dashboard-config"
+    },
+    {
+      "from": "src/server/actions/distributors.ts",
+      "to": "src/types/distributors.ts",
+      "spec": "@/types/distributors"
+    },
+    {
+      "from": "src/server/actions/gmail.actions.ts",
+      "to": "src/server/integrations/gmail/client.ts",
+      "spec": "@/server/integrations/gmail/client"
+    },
+    {
+      "from": "src/server/actions/gmail.actions.ts",
+      "to": "src/server/integrations/gmail/sync.ts",
+      "spec": "@/server/integrations/gmail/sync"
+    },
+    {
+      "from": "src/server/actions/gmail.actions.ts",
+      "to": "src/server/integrations/gmail/types.ts",
+      "spec": "@/server/integrations/gmail/types"
+    },
+    {
+      "from": "src/server/actions/goods-receipt.actions.ts",
+      "to": "src/domain/validators.ts",
+      "spec": "@/domain/validators"
+    },
+    {
+      "from": "src/server/actions/goods-receipt.actions.ts",
+      "to": "src/lib/norm/text.ts",
+      "spec": "@/lib/norm/text"
+    },
+    {
+      "from": "src/server/actions/goods-receipt.actions.ts",
+      "to": "src/lib/codes.ts",
+      "spec": "@/lib/codes"
+    },
+    {
+      "from": "src/server/actions/goods-receipt.actions.ts",
+      "to": "src/domain/id-helpers.ts",
+      "spec": "@/domain/id-helpers"
+    },
+    {
+      "from": "src/server/actions/goods-receipt.actions.ts",
+      "to": "src/domain/uom.ts",
+      "spec": "@/domain/uom"
+    },
+    {
+      "from": "src/server/actions/goods-receipt.actions.ts",
+      "to": "src/lib/trace/TraceEventFactory.ts",
+      "spec": "@/lib/trace/TraceEventFactory"
+    },
+    {
+      "from": "src/server/actions/holded-accounts-sync.ts",
+      "to": "src/server/integrations/holded/client.ts",
+      "spec": "@/server/integrations/holded/client"
+    },
+    {
+      "from": "src/server/actions/holded-accounts-sync.ts",
+      "to": "src/server/integrations/holded/normalize.ts",
+      "spec": "@/server/integrations/holded/normalize"
+    },
+    {
+      "from": "src/server/actions/holded-accounts-sync.ts",
+      "to": "src/server/integrations/holded/utils.ts",
+      "spec": "@/server/integrations/holded/utils"
+    },
+    {
+      "from": "src/server/actions/holded-invoices-sync.ts",
+      "to": "src/server/integrations/holded/client.ts",
+      "spec": "@/server/integrations/holded/client"
+    },
+    {
+      "from": "src/server/actions/holded-orders-sync.ts",
+      "to": "src/server/integrations/holded/client.ts",
+      "spec": "@/server/integrations/holded/client"
+    },
+    {
+      "from": "src/server/actions/holded-orders-sync.ts",
+      "to": "src/server/integrations/holded/utils.ts",
+      "spec": "@/server/integrations/holded/utils"
+    },
+    {
+      "from": "src/server/actions/holded-orders-sync.ts",
+      "to": "src/server/integrations/holded/normalize.ts",
+      "spec": "@/server/integrations/holded/normalize"
+    },
+    {
+      "from": "src/server/actions/holded-sync.ts",
+      "to": "src/server/integrations/holded/client.ts",
+      "spec": "@/server/integrations/holded/client"
+    },
+    {
+      "from": "src/server/actions/holded-sync.ts",
+      "to": "src/domain/id-helpers.ts",
+      "spec": "@/domain/id-helpers"
+    },
+    {
+      "from": "src/server/actions/holded-sync.ts",
+      "to": "src/server/gemini/context-logger.ts",
+      "spec": "@/server/gemini/context-logger"
+    },
+    {
+      "from": "src/server/actions/holded-treasury-sync.ts",
+      "to": "src/server/integrations/holded/client.ts",
+      "spec": "@/server/integrations/holded/client"
+    },
+    {
+      "from": "src/server/actions/intelligence-hub.actions.ts",
+      "to": "src/server/gemini/gemini-client.ts",
+      "spec": "@/server/gemini/gemini-client"
+    },
+    {
+      "from": "src/server/actions/inventory.actions.ts",
+      "to": "src/lib/dates.ts",
+      "spec": "@/lib/dates"
+    },
+    {
+      "from": "src/server/actions/orders.ts",
+      "to": "src/types/orders.ts",
+      "spec": "@/types/orders"
+    },
+    {
+      "from": "src/server/actions/orders.ts",
+      "to": "src/types/orders.ts",
+      "spec": "@/types/orders"
+    },
+    {
+      "from": "src/server/actions/pipeline.actions.ts",
+      "to": "src/components/pipeline/types.ts",
+      "spec": "@/components/pipeline/types"
+    },
+    {
+      "from": "src/server/actions/production.actions.ts",
+      "to": "src/lib/dataprovider/server/index.ts",
+      "spec": "@/lib/dataprovider/server"
+    },
+    {
+      "from": "src/server/actions/production.actions.ts",
+      "to": "src/domain/validators.ts",
+      "spec": "@/domain/validators"
+    },
+    {
+      "from": "src/server/actions/production.actions.ts",
+      "to": "src/server/production/bom.service.ts",
+      "spec": "@/server/production/bom.service"
+    },
+    {
+      "from": "src/server/actions/production.actions.ts",
+      "to": "src/domain/id-helpers.ts",
+      "spec": "@/domain/id-helpers"
+    },
+    {
+      "from": "src/server/actions/production.actions.ts",
+      "to": "src/domain/uom.ts",
+      "spec": "@/domain/uom"
+    },
+    {
+      "from": "src/server/actions/production.actions.ts",
+      "to": "src/lib/inventory-validation.ts",
+      "spec": "@/lib/inventory-validation"
+    },
+    {
+      "from": "src/server/actions/production.actions.ts",
+      "to": "src/lib/trace/TraceEventFactory.ts",
+      "spec": "@/lib/trace/TraceEventFactory"
+    },
+    {
+      "from": "src/server/actions/quality-gemini.ts",
+      "to": "src/server/gemini/analyzers/quality-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/quality-analyzer"
+    },
+    {
+      "from": "src/server/actions/quality-gemini.ts",
+      "to": "src/server/gemini/analyzers/quality-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/quality-analyzer"
+    },
+    {
+      "from": "src/server/actions/quality-plans.ts",
+      "to": "src/types/quality.ts",
+      "spec": "@/types/quality"
+    },
+    {
+      "from": "src/server/actions/quality-stats.ts",
+      "to": "src/types/quality.ts",
+      "spec": "@/types/quality"
+    },
+    {
+      "from": "src/server/actions/quality.actions.ts",
+      "to": "src/types/quality.ts",
+      "spec": "@/types/quality"
+    },
+    {
+      "from": "src/server/actions/quality.actions.ts",
+      "to": "src/lib/trace/TraceEventFactory.ts",
+      "spec": "@/lib/trace/TraceEventFactory"
+    },
+    {
+      "from": "src/server/actions/quality.data.ts",
+      "to": "src/server/gemini/analyzers/quality-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/quality-analyzer"
+    },
+    {
+      "from": "src/server/actions/quality.data.ts",
+      "to": "src/server/utils/firestore.ts",
+      "spec": "@/server/utils/firestore"
+    },
+    {
+      "from": "src/server/actions/quicklog.actions.ts",
+      "to": "src/features/quicklog/components/QuickLogConfirmation.tsx",
+      "spec": "@/features/quicklog/components/QuickLogConfirmation"
+    },
+    {
+      "from": "src/server/actions/recommendations.ts",
+      "to": "src/server/gemini/recommendation-engine.ts",
+      "spec": "../gemini/recommendation-engine"
+    },
+    {
+      "from": "src/server/actions/sendcloud-sync.ts",
+      "to": "src/config/locations.ts",
+      "spec": "@/config/locations"
+    },
+    {
+      "from": "src/server/actions/sendcloud-sync.ts",
+      "to": "src/server/integrations/sendcloud/client.ts",
+      "spec": "@/server/integrations/sendcloud/client"
+    },
+    {
+      "from": "src/server/actions/sendcloud-sync.ts",
+      "to": "src/server/gemini/context-logger.ts",
+      "spec": "@/server/gemini/context-logger"
+    },
+    {
+      "from": "src/server/actions/shopify-dashboard.ts",
+      "to": "src/server/integrations/shopify/client.ts",
+      "spec": "@/server/integrations/shopify/client"
+    },
+    {
+      "from": "src/server/actions/shopify-dashboard.ts",
+      "to": "src/server/integrations/shopify/normalize.ts",
+      "spec": "@/server/integrations/shopify/normalize"
+    },
+    {
+      "from": "src/server/actions/shopify-dashboard.ts",
+      "to": "src/server/integrations/holded/utils.ts",
+      "spec": "@/server/integrations/holded/utils"
+    },
+    {
+      "from": "src/server/actions/shopify-sync.ts",
+      "to": "src/server/integrations/shopify/client.ts",
+      "spec": "../integrations/shopify/client"
+    },
+    {
+      "from": "src/server/actions/warehouse-suppliers.ts",
+      "to": "src/lib/dates.ts",
+      "spec": "@/lib/dates"
+    },
+    {
+      "from": "src/server/actions/warehouse.actions.ts",
+      "to": "src/config/locations.ts",
+      "spec": "@/config/locations"
+    },
+    {
+      "from": "src/server/actions/warehouse.actions.ts",
+      "to": "src/lib/dates.ts",
+      "spec": "@/lib/dates"
+    },
+    {
+      "from": "src/server/actions/warehouse.v2.actions.ts",
+      "to": "src/config/locations.ts",
+      "spec": "@/config/locations"
+    },
+    {
+      "from": "src/server/actions/warehouse.v2.actions.ts",
+      "to": "src/domain/ssot-v2-schemas.ts",
+      "spec": "@/domain/ssot-v2-schemas"
+    },
+    {
+      "from": "src/server/actions/warehouse.v2.actions.ts",
+      "to": "src/domain/ssot-v2-schemas.ts",
+      "spec": "@/domain/ssot-v2-schemas"
+    },
+    {
+      "from": "src/server/actions/workhub.actions.ts",
+      "to": "src/domain/workitem.ts",
+      "spec": "@/domain/workitem"
+    },
+    {
+      "from": "src/server/actions/workhub.actions.ts",
+      "to": "src/domain/projects-tasks-unified.ts",
+      "spec": "@/domain/projects-tasks-unified"
+    },
+    {
+      "from": "src/server/actions/workitems.actions.ts",
+      "to": "src/domain/workitem.ts",
+      "spec": "@/domain/workitem"
+    },
+    {
+      "from": "src/server/actions/workitems.actions.ts",
+      "to": "src/server/automation/automation-engine.ts",
+      "spec": "../automation/automation-engine"
+    },
+    {
+      "from": "src/services/canonical/project.service.ts",
+      "to": "src/domain/projects-tasks-unified.ts",
+      "spec": "@/domain/projects-tasks-unified"
+    },
+    {
+      "from": "src/services/canonical/project.service.ts",
+      "to": "src/domain/projects-tasks-unified.ts",
+      "spec": "@/domain/projects-tasks-unified"
+    },
+    {
+      "from": "src/services/canonical/reconciliation.service.ts",
+      "to": "src/config/locations.ts",
+      "spec": "@/config/locations"
+    },
+    {
+      "from": "src/services/canonical/workitem.service.ts",
+      "to": "src/server/gemini/analyzers/workitem-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/workitem-analyzer"
+    },
+    {
+      "from": "src/services/canonical/workitem.service.ts",
+      "to": "src/domain/projects-tasks-unified.ts",
+      "spec": "@/domain/projects-tasks-unified"
+    },
+    {
+      "from": "src/services/canonical/workitem.service.ts",
+      "to": "src/domain/workitem.ts",
+      "spec": "@/domain/workitem"
+    },
+    {
+      "from": "src/ui/drawers/DrawerController.tsx",
+      "to": "src/ui/drawers/drawer-registry.tsx",
+      "spec": "./drawer-registry"
+    },
+    {
+      "from": "src/ui/drawers/DrawerController.tsx",
+      "to": "src/ui/drawers/drawers/TaskQuickEditDrawer.tsx",
+      "spec": "./drawers/TaskQuickEditDrawer"
+    },
+    {
+      "from": "src/ui/drawers/DrawerController.tsx",
+      "to": "src/ui/drawers/drawers/MoveStageDrawer.tsx",
+      "spec": "./drawers/MoveStageDrawer"
+    },
+    {
+      "from": "src/ui/drawers/DrawerController.tsx",
+      "to": "src/ui/drawers/drawers/OpportunityDrawer.tsx",
+      "spec": "./drawers/OpportunityDrawer"
+    },
+    {
+      "from": "src/ui/drawers/DrawerController.tsx",
+      "to": "src/ui/drawers/drawers/NewOrderDrawer.tsx",
+      "spec": "./drawers/NewOrderDrawer"
+    },
+    {
+      "from": "src/ui/drawers/DrawerController.tsx",
+      "to": "src/ui/drawers/drawers/PlacementOrderDrawer.tsx",
+      "spec": "./drawers/PlacementOrderDrawer"
+    },
+    {
+      "from": "src/ui/drawers/DrawerController.tsx",
+      "to": "src/ui/drawers/drawers/AccountQuickView.tsx",
+      "spec": "./drawers/AccountQuickView"
+    },
+    {
+      "from": "src/ui/drawers/DrawerController.tsx",
+      "to": "src/ui/drawers/drawers/RegisterInteractionDrawer.tsx",
+      "spec": "./drawers/RegisterInteractionDrawer"
+    },
+    {
+      "from": "src/ui/drawers/DrawerController.tsx",
+      "to": "src/ui/drawers/drawers/RegisterPOSDrawer.tsx",
+      "spec": "./drawers/RegisterPOSDrawer"
+    },
+    {
+      "from": "src/ui/drawers/DrawerController.tsx",
+      "to": "src/ui/drawers/drawers/RegisterEventDrawer.tsx",
+      "spec": "./drawers/RegisterEventDrawer"
+    },
+    {
+      "from": "src/ui/drawers/DrawerController.tsx",
+      "to": "src/ui/drawers/drawers/QuickOrderDrawer.tsx",
+      "spec": "./drawers/QuickOrderDrawer"
+    },
+    {
+      "from": "src/app/(app)/calendario/page.tsx",
+      "to": "src/components/tasks/CalendarioContent.tsx",
+      "spec": "@/components/tasks/CalendarioContent"
+    },
+    {
+      "from": "src/app/(app)/calendario/page.tsx",
+      "to": "src/features/tasks/actions.ts",
+      "spec": "@/features/tasks/actions"
+    },
+    {
+      "from": "src/app/(app)/calendario/page.tsx",
+      "to": "src/types/tasks.ts",
+      "spec": "@/types/tasks"
+    },
+    {
+      "from": "src/app/(app)/production/layout.tsx",
+      "to": "src/components/ui/ModuleHeader.tsx",
+      "spec": "@/components/ui/ModuleHeader"
+    },
+    {
+      "from": "src/app/(app)/orders/actions.ts",
+      "to": "src/lib/dataprovider/server/index.ts",
+      "spec": "@/lib/dataprovider/server"
+    },
+    {
+      "from": "src/app/(app)/orders/actions.ts",
+      "to": "src/lib/inventory-validation.ts",
+      "spec": "@/lib/inventory-validation"
+    },
+    {
+      "from": "src/app/(app)/orders/actions.ts",
+      "to": "src/lib/trace/TraceEventFactory.ts",
+      "spec": "@/lib/trace/TraceEventFactory"
+    },
+    {
+      "from": "src/app/(app)/orders/actions.ts",
+      "to": "src/server/gemini/context-logger.ts",
+      "spec": "@/server/gemini/context-logger"
+    },
+    {
+      "from": "src/app/(app)/proyectos/page.tsx",
+      "to": "src/features/projects/components/ProjectCard.tsx",
+      "spec": "@/features/projects/components/ProjectCard"
+    },
+    {
+      "from": "src/app/(app)/proyectos/page.tsx",
+      "to": "src/features/projects/components/ProjectDrawer.tsx",
+      "spec": "@/features/projects/components/ProjectDrawer"
+    },
+    {
+      "from": "src/app/(app)/proyectos/page.tsx",
+      "to": "src/features/projects/components/CreateProjectDrawer.tsx",
+      "spec": "@/features/projects/components/CreateProjectDrawer"
+    },
+    {
+      "from": "src/app/(app)/proyectos/page.tsx",
+      "to": "src/features/projects/components/IdeasWidget.tsx",
+      "spec": "@/features/projects/components/IdeasWidget"
+    },
+    {
+      "from": "src/app/(app)/proyectos/page.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "@/components/dashboards/shared/KpiCard"
+    },
+    {
+      "from": "src/app/(app)/proyectos/page.tsx",
+      "to": "src/components/projects/ProjectKanban.tsx",
+      "spec": "@/components/projects/ProjectKanban"
+    },
+    {
+      "from": "src/app/(app)/proyectos/page.tsx",
+      "to": "src/components/projects/ProjectTimeline.tsx",
+      "spec": "@/components/projects/ProjectTimeline"
+    },
+    {
+      "from": "src/app/(app)/proyectos/page.tsx",
+      "to": "src/components/projects/ResourceAllocation.tsx",
+      "spec": "@/components/projects/ResourceAllocation"
+    },
+    {
+      "from": "src/app/(app)/proyectos/page.tsx",
+      "to": "src/components/projects/BudgetTracker.tsx",
+      "spec": "@/components/projects/BudgetTracker"
+    },
+    {
+      "from": "src/app/(app)/proyectos/page.tsx",
+      "to": "src/components/projects/ProjectAlerts.tsx",
+      "spec": "@/components/projects/ProjectAlerts"
+    },
+    {
+      "from": "src/app/(app)/proyectos/page.tsx",
+      "to": "src/lib/export-utils.ts",
+      "spec": "@/lib/export-utils"
+    },
+    {
+      "from": "src/app/(app)/quality/layout.tsx",
+      "to": "src/components/ui/ModuleHeader.tsx",
+      "spec": "@/components/ui/ModuleHeader"
+    },
+    {
+      "from": "src/app/(app)/ventas/page.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "@/components/dashboards/shared/KpiCard"
+    },
+    {
+      "from": "src/app/(app)/ventas/page.tsx",
+      "to": "src/components/dashboards/shared/ChartCard.tsx",
+      "spec": "@/components/dashboards/shared/ChartCard"
+    },
+    {
+      "from": "src/app/(app)/ventas/page.tsx",
+      "to": "src/components/widgets/MiniCalendarCollapsible.tsx",
+      "spec": "@/components/widgets/MiniCalendarCollapsible"
+    },
+    {
+      "from": "src/app/(app)/ventas/page.tsx",
+      "to": "src/components/widgets/TasksWidget.tsx",
+      "spec": "@/components/widgets/TasksWidget"
+    },
+    {
+      "from": "src/app/(app)/ventas/page.tsx",
+      "to": "src/components/dashboards/shared/AlertsCard.tsx",
+      "spec": "@/components/dashboards/shared/AlertsCard"
+    },
+    {
+      "from": "src/app/(app)/ventas/page.tsx",
+      "to": "src/components/widgets/SmartMailsWidget.tsx",
+      "spec": "@/components/widgets/SmartMailsWidget"
+    },
+    {
+      "from": "src/app/(app)/ventas/page.tsx",
+      "to": "src/components/ui/SBMetricCard.tsx",
+      "spec": "@/components/ui/SBMetricCard"
+    },
+    {
+      "from": "src/app/(app)/warehouse/layout.tsx",
+      "to": "src/components/ui/ModuleHeader.tsx",
+      "spec": "@/components/ui/ModuleHeader"
+    },
+    {
+      "from": "src/app/(app)/work/WorkHubClient.tsx",
+      "to": "src/components/widgets/TasksWidget.tsx",
+      "spec": "@/components/widgets/TasksWidget"
+    },
+    {
+      "from": "src/app/(app)/work/WorkHubClient.tsx",
+      "to": "src/components/widgets/ProjectsCircleWidget.tsx",
+      "spec": "@/components/widgets/ProjectsCircleWidget"
+    },
+    {
+      "from": "src/app/(app)/work/WorkHubClient.tsx",
+      "to": "src/features/workhub/components/WorkKanbanBoard.tsx",
+      "spec": "@/features/workhub/components/WorkKanbanBoard"
+    },
+    {
+      "from": "src/app/(app)/work/WorkHubClient.tsx",
+      "to": "src/features/workhub/components/WorkTimeline.tsx",
+      "spec": "@/features/workhub/components/WorkTimeline"
+    },
+    {
+      "from": "src/app/(app)/work/WorkHubClient.tsx",
+      "to": "src/features/workhub/components/WorkCalendar.tsx",
+      "spec": "@/features/workhub/components/WorkCalendar"
+    },
+    {
+      "from": "src/app/(app)/work/WorkHubClient.tsx",
+      "to": "src/domain/workitem.ts",
+      "spec": "@/domain/workitem"
+    },
+    {
+      "from": "src/app/(app)/work/WorkHubClient.tsx",
+      "to": "src/ui/drawers/drawers/TaskEditDrawer.tsx",
+      "spec": "@/ui/drawers/drawers/TaskEditDrawer"
+    },
+    {
+      "from": "src/app/(app)/work/WorkHubClient.tsx",
+      "to": "src/ui/drawers/drawers/ProjectEditDrawer.tsx",
+      "spec": "@/ui/drawers/drawers/ProjectEditDrawer"
+    },
+    {
+      "from": "src/app/(app)/work/page.tsx",
+      "to": "src/app/(app)/work/WorkHubClient.tsx",
+      "spec": "./WorkHubClient"
+    },
+    {
+      "from": "src/app/api/pipeline-board/route.ts",
+      "to": "src/features/sales/pipeline/pipeline.service.ts",
+      "spec": "@/features/sales/pipeline/pipeline.service"
+    },
+    {
+      "from": "src/app/api/santa-brain/route.ts",
+      "to": "src/lib/santa-brain/gemini-client.ts",
+      "spec": "@/lib/santa-brain/gemini-client"
+    },
+    {
+      "from": "src/app/api/santa-brain/route.ts",
+      "to": "src/lib/santa-brain/fuzzy-matching.ts",
+      "spec": "@/lib/santa-brain/fuzzy-matching"
+    },
+    {
+      "from": "src/app/api/santa-brain/route.ts",
+      "to": "src/lib/cache/gemini-cache.ts",
+      "spec": "@/lib/cache/gemini-cache"
+    },
+    {
+      "from": "src/app/api/santa-brain/route.ts",
+      "to": "src/lib/rate-limit/rate-limiter.ts",
+      "spec": "@/lib/rate-limit/rate-limiter"
+    },
+    {
+      "from": "src/app/api/santa-brain/route.ts",
+      "to": "src/lib/telemetry/gemini-telemetry.ts",
+      "spec": "@/lib/telemetry/gemini-telemetry"
+    },
+    {
+      "from": "src/app/api/santa-brain/route.ts",
+      "to": "src/lib/resilience/circuit-breaker.ts",
+      "spec": "@/lib/resilience/circuit-breaker"
+    },
+    {
+      "from": "src/app/api/tasks/route.ts",
+      "to": "src/features/agenda/hooks/useTasks.ts",
+      "spec": "@/features/agenda/hooks/useTasks"
+    },
+    {
+      "from": "src/app/api/setup-locations/route.ts",
+      "to": "src/config/locations.ts",
+      "spec": "@/config/locations"
+    },
+    {
+      "from": "src/features/admin/components/SystemConfigEditor.tsx",
+      "to": "src/features/admin/actions.ts",
+      "spec": "../actions"
+    },
+    {
+      "from": "src/features/quicklog/actions/process-message.ts",
+      "to": "src/lib/algolia/search.ts",
+      "spec": "@/lib/algolia/search"
+    },
+    {
+      "from": "src/features/quicklog/utils/process-quicklog.ts",
+      "to": "src/server/gemini/analyzers/quicklog-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/quicklog-analyzer"
+    },
+    {
+      "from": "src/features/quicklog/utils/process-quicklog.ts",
+      "to": "src/features/quicklog/components/QuickLogConfirmation.tsx",
+      "spec": "../components/QuickLogConfirmation"
+    },
+    {
+      "from": "src/features/sales/pipeline/pipeline.service.ts",
+      "to": "src/features/sales/pipeline/pipeline.types.ts",
+      "spec": "./pipeline.types"
+    },
+    {
+      "from": "src/features/projects/components/CreateProjectDrawer.tsx",
+      "to": "src/features/projects/actions.ts",
+      "spec": "../actions"
+    },
+    {
+      "from": "src/features/projects/components/IdeasBoard.tsx",
+      "to": "src/features/projects/components/IdeaBadge.tsx",
+      "spec": "./IdeaBadge"
+    },
+    {
+      "from": "src/features/projects/components/IdeasWidget.tsx",
+      "to": "src/features/projects/actions.ts",
+      "spec": "../actions"
+    },
+    {
+      "from": "src/features/projects/components/ProjectCard.tsx",
+      "to": "src/features/projects/components/ProgressCircle.tsx",
+      "spec": "./ProgressCircle"
+    },
+    {
+      "from": "src/features/projects/components/ProjectDrawer.tsx",
+      "to": "src/features/projects/components/IdeasBoard.tsx",
+      "spec": "./IdeasBoard"
+    },
+    {
+      "from": "src/features/projects/components/ProjectDrawer.tsx",
+      "to": "src/features/projects/components/ConvertIdeaModal.tsx",
+      "spec": "./ConvertIdeaModal"
+    },
+    {
+      "from": "src/features/projects/components/ProjectDrawer.tsx",
+      "to": "src/features/projects/actions.ts",
+      "spec": "../actions"
+    },
+    {
+      "from": "src/features/projects/components/ProjectDrawer.tsx",
+      "to": "src/features/tasks/actions.ts",
+      "spec": "@/features/tasks/actions"
+    },
+    {
+      "from": "src/features/projects/components/ProjectDrawer.tsx",
+      "to": "src/features/projects/components/ProgressCircle.tsx",
+      "spec": "./ProgressCircle"
+    },
+    {
+      "from": "src/features/projects/components/index.ts",
+      "to": "src/features/projects/components/ProgressCircle.tsx",
+      "spec": "./ProgressCircle"
+    },
+    {
+      "from": "src/features/projects/components/index.ts",
+      "to": "src/features/projects/components/ProjectCard.tsx",
+      "spec": "./ProjectCard"
+    },
+    {
+      "from": "src/features/projects/components/index.ts",
+      "to": "src/features/projects/components/IdeaBadge.tsx",
+      "spec": "./IdeaBadge"
+    },
+    {
+      "from": "src/features/projects/components/index.ts",
+      "to": "src/features/projects/components/IdeasBoard.tsx",
+      "spec": "./IdeasBoard"
+    },
+    {
+      "from": "src/features/projects/components/index.ts",
+      "to": "src/features/projects/components/ConvertIdeaModal.tsx",
+      "spec": "./ConvertIdeaModal"
+    },
+    {
+      "from": "src/features/projects/components/index.ts",
+      "to": "src/features/projects/components/ProjectDrawer.tsx",
+      "spec": "./ProjectDrawer"
+    },
+    {
+      "from": "src/features/projects/components/index.ts",
+      "to": "src/features/projects/components/IdeasWidget.tsx",
+      "spec": "./IdeasWidget"
+    },
+    {
+      "from": "src/features/projects/components/index.ts",
+      "to": "src/features/projects/components/CreateProjectDrawer.tsx",
+      "spec": "./CreateProjectDrawer"
+    },
+    {
+      "from": "src/features/tasks/activities/actions.ts",
+      "to": "src/domain/zod/activity.ts",
+      "spec": "@/domain/zod/activity"
+    },
+    {
+      "from": "src/features/tasks/components/TaskDrawer.tsx",
+      "to": "src/features/tasks/actions.ts",
+      "spec": "@/features/tasks/actions"
+    },
+    {
+      "from": "src/features/tasks/components/TaskDrawer.tsx",
+      "to": "src/features/tasks/subtasks/actions.ts",
+      "spec": "@/features/tasks/subtasks/actions"
+    },
+    {
+      "from": "src/features/tasks/components/TaskDrawer.tsx",
+      "to": "src/features/tasks/activities/actions.ts",
+      "spec": "@/features/tasks/activities/actions"
+    },
+    {
+      "from": "src/features/tasks/components/TaskDrawer.tsx",
+      "to": "src/features/tasks/components/TaskChecklist.tsx",
+      "spec": "./TaskChecklist"
+    },
+    {
+      "from": "src/features/tasks/components/TaskDrawer.tsx",
+      "to": "src/features/tasks/components/TaskTimeline.tsx",
+      "spec": "./TaskTimeline"
+    },
+    {
+      "from": "src/features/tasks/components/TaskDrawer.tsx",
+      "to": "src/features/tasks/components/VisitPlannerDialog.tsx",
+      "spec": "./VisitPlannerDialog"
+    },
+    {
+      "from": "src/features/tasks/components/TaskDrawer.tsx",
+      "to": "src/features/tasks/components/UserSelector.tsx",
+      "spec": "./UserSelector"
+    },
+    {
+      "from": "src/features/tasks/components/VisitPlannerDialog.tsx",
+      "to": "src/features/tasks/actions.ts",
+      "spec": "../actions"
+    },
+    {
+      "from": "src/features/warehouse/components/GoodsReceiptDrawer.tsx",
+      "to": "src/lib/warehouse-generators.ts",
+      "spec": "@/lib/warehouse-generators"
+    },
+    {
+      "from": "src/features/warehouse/components/GoodsReceiptDrawer.tsx",
+      "to": "src/components/warehouse/CategorySelector.tsx",
+      "spec": "@/components/warehouse/CategorySelector"
+    },
+    {
+      "from": "src/features/warehouse/components/GoodsReceiptDrawer.tsx",
+      "to": "src/components/warehouse/PhotoUploadButton.tsx",
+      "spec": "@/components/warehouse/PhotoUploadButton"
+    },
+    {
+      "from": "src/features/warehouse/components/GoodsReceiptDrawer.tsx",
+      "to": "src/components/warehouse/ProductSearchCombobox.tsx",
+      "spec": "@/components/warehouse/ProductSearchCombobox"
+    },
+    {
+      "from": "src/features/warehouse/components/GoodsReceiptDrawer.tsx",
+      "to": "src/components/warehouse/SupplierSearchCombobox.tsx",
+      "spec": "@/components/warehouse/SupplierSearchCombobox"
+    },
+    {
+      "from": "src/features/warehouse/components/GoodsReceiptDrawer.tsx",
+      "to": "src/components/warehouse/PhotoUploadButton.tsx",
+      "spec": "@/components/warehouse/PhotoUploadButton"
+    },
+    {
+      "from": "src/features/warehouse/components/GoodsReceiptDrawer.tsx",
+      "to": "src/lib/firebase-storage.ts",
+      "spec": "@/lib/firebase-storage"
+    },
+    {
+      "from": "src/features/warehouse/components/InventoryDashboard.tsx",
+      "to": "src/lib/inventory.ts",
+      "spec": "@/lib/inventory"
+    },
+    {
+      "from": "src/features/tasks/subtasks/actions.ts",
+      "to": "src/domain/zod/subtask.ts",
+      "spec": "@/domain/zod/subtask"
+    },
+    {
+      "from": "src/features/workhub/components/WorkCalendar.tsx",
+      "to": "src/domain/workitem.ts",
+      "spec": "@/domain/workitem"
+    },
+    {
+      "from": "src/features/workhub/components/WorkKanbanBoard.tsx",
+      "to": "src/domain/workitem.ts",
+      "spec": "@/domain/workitem"
+    },
+    {
+      "from": "src/features/workhub/components/WorkKanbanBoard.tsx",
+      "to": "src/lib/dates.ts",
+      "spec": "@/lib/dates"
+    },
+    {
+      "from": "src/features/workhub/components/WorkTimeline.tsx",
+      "to": "src/domain/workitem.ts",
+      "spec": "@/domain/workitem"
+    },
+    {
+      "from": "src/features/workhub/components/WorkTimeline.tsx",
+      "to": "src/lib/dates.ts",
+      "spec": "@/lib/dates"
+    },
+    {
+      "from": "src/server/integrations/gmail/client.ts",
+      "to": "src/server/integrations/base-integration.ts",
+      "spec": "../base-integration"
+    },
+    {
+      "from": "src/server/integrations/gmail/client.ts",
+      "to": "src/server/integrations/gmail/types.ts",
+      "spec": "./types"
+    },
+    {
+      "from": "src/server/integrations/gmail/client.ts",
+      "to": "src/server/integrations/gmail/parser.ts",
+      "spec": "./parser"
+    },
+    {
+      "from": "src/server/integrations/gmail/parser.ts",
+      "to": "src/server/integrations/gmail/types.ts",
+      "spec": "./types"
+    },
+    {
+      "from": "src/server/integrations/gmail/sync.ts",
+      "to": "src/server/integrations/gmail/client.ts",
+      "spec": "./client"
+    },
+    {
+      "from": "src/server/integrations/gmail/sync.ts",
+      "to": "src/server/integrations/gmail/parser.ts",
+      "spec": "./parser"
+    },
+    {
+      "from": "src/server/integrations/gmail/sync.ts",
+      "to": "src/server/integrations/gmail/types.ts",
+      "spec": "./types"
+    },
+    {
+      "from": "src/server/integrations/gmail/sync.ts",
+      "to": "src/server/gemini/intelligence-hub.ts",
+      "spec": "@/server/gemini/intelligence-hub"
+    },
+    {
+      "from": "src/lib/data-quality/rules/R1_1_MissingStandardCost.ts",
+      "to": "src/lib/data-quality/types.ts",
+      "spec": "../types"
+    },
+    {
+      "from": "src/server/integrations/holded/client.ts",
+      "to": "src/server/integrations/base-integration.ts",
+      "spec": "../base-integration"
+    },
+    {
+      "from": "src/server/integrations/holded/mappers.ts",
+      "to": "src/server/integrations/holded/validators.ts",
+      "spec": "./validators"
+    },
+    {
+      "from": "src/server/integrations/holded/mappers.ts",
+      "to": "src/domain/integration-helpers.ts",
+      "spec": "@/domain/integration-helpers"
+    },
+    {
+      "from": "src/server/integrations/sendcloud/client.ts",
+      "to": "src/config/locations.ts",
+      "spec": "@/config/locations"
+    },
+    {
+      "from": "src/server/integrations/sendcloud/client.ts",
+      "to": "src/server/integrations/base-integration.ts",
+      "spec": "../base-integration"
+    },
+    {
+      "from": "src/server/integrations/shopify/client.ts",
+      "to": "src/server/integrations/base-integration.ts",
+      "spec": "../base-integration"
+    },
+    {
+      "from": "src/server/integrations/shopify/import-order.ts",
+      "to": "src/server/integrations/shopify/client.ts",
+      "spec": "./client"
+    },
+    {
+      "from": "src/server/integrations/shopify/import-order.ts",
+      "to": "src/server/integrations/shopify/map.ts",
+      "spec": "./map"
+    },
+    {
+      "from": "src/server/integrations/shopify/import-order.ts",
+      "to": "src/lib/dataprovider/actions.ts",
+      "spec": "@/lib/dataprovider/actions"
+    },
+    {
+      "from": "src/server/integrations/shopify/import-order.ts",
+      "to": "src/lib/dataprovider/server/index.ts",
+      "spec": "@/lib/dataprovider/server"
+    },
+    {
+      "from": "src/server/integrations/shopify/import-order.ts",
+      "to": "src/server/queue/queue.ts",
+      "spec": "@/server/queue/queue"
+    },
+    {
+      "from": "src/server/integrations/shopify/process.ts",
+      "to": "src/server/queue/queue.ts",
+      "spec": "@/server/queue/queue"
+    },
+    {
+      "from": "src/server/integrations/shopify/process.ts",
+      "to": "src/server/integrations/shopify/map.ts",
+      "spec": "@/server/integrations/shopify/map"
+    },
+    {
+      "from": "src/server/integrations/shopify/process.ts",
+      "to": "src/server/integrations/shopify/hmac.ts",
+      "spec": "./hmac"
+    },
+    {
+      "from": "src/server/integrations/shopify/shopify.webhooks.ts",
+      "to": "src/server/integrations/shopify/upsertShopifyOrder.usecase.ts",
+      "spec": "./upsertShopifyOrder.usecase"
+    },
+    {
+      "from": "src/server/integrations/shopify/upsertShopifyOrder.usecase.ts",
+      "to": "src/server/queue/queue.ts",
+      "spec": "@/server/queue/queue"
+    },
+    {
+      "from": "src/server/integrations/shopify/upsertShopifyOrder.usecase.ts",
+      "to": "src/server/integrations/shopify/map.ts",
+      "spec": "./map"
+    },
+    {
+      "from": "src/app/(app)/admin/data-import/actions.ts",
+      "to": "src/lib/codes.ts",
+      "spec": "@/lib/codes"
+    },
+    {
+      "from": "src/app/(app)/admin/data-import/actions.ts",
+      "to": "src/lib/dataprovider/server/index.ts",
+      "spec": "@/lib/dataprovider/server"
+    },
+    {
+      "from": "src/app/(app)/admin/data-import/actions.ts",
+      "to": "src/lib/dataprovider/actions.ts",
+      "spec": "@/lib/dataprovider/actions"
+    },
+    {
+      "from": "src/app/(app)/admin/brain/BrainPanel.tsx",
+      "to": "src/domain/brain.ts",
+      "spec": "@/domain/brain"
+    },
+    {
+      "from": "src/app/(app)/admin/brain/BrainPanel.tsx",
+      "to": "src/domain/campaigns.ts",
+      "spec": "@/domain/campaigns"
+    },
+    {
+      "from": "src/app/(app)/admin/brain/BrainPanel.tsx",
+      "to": "src/app/(app)/admin/brain/CampaignCard.tsx",
+      "spec": "./CampaignCard"
+    },
+    {
+      "from": "src/app/(app)/admin/brain/BrainPanel.tsx",
+      "to": "src/app/(app)/admin/brain/CreateCampaignDialog.tsx",
+      "spec": "./CreateCampaignDialog"
+    },
+    {
+      "from": "src/app/(app)/admin/brain/BrainPanel.tsx",
+      "to": "src/app/(app)/admin/brain/MonitoringPanel.tsx",
+      "spec": "./MonitoringPanel"
+    },
+    {
+      "from": "src/app/(app)/admin/brain/CampaignCard.tsx",
+      "to": "src/domain/campaigns.ts",
+      "spec": "@/domain/campaigns"
+    },
+    {
+      "from": "src/app/(app)/admin/brain/CampaignCard.tsx",
+      "to": "src/domain/campaigns.ts",
+      "spec": "@/domain/campaigns"
+    },
+    {
+      "from": "src/app/(app)/admin/brain/CreateCampaignDialog.tsx",
+      "to": "src/domain/campaigns.ts",
+      "spec": "@/domain/campaigns"
+    },
+    {
+      "from": "src/app/(app)/admin/brain/MonitoringPanel.tsx",
+      "to": "src/domain/brain.ts",
+      "spec": "@/domain/brain"
+    },
+    {
+      "from": "src/app/(app)/admin/brain/MonitoringPanel.tsx",
+      "to": "src/domain/campaigns.ts",
+      "spec": "@/domain/campaigns"
+    },
+    {
+      "from": "src/app/(app)/admin/brain/page.tsx",
+      "to": "src/app/(app)/admin/brain/BrainPanel.tsx",
+      "spec": "./BrainPanel"
+    },
+    {
+      "from": "src/app/(app)/admin/integrations/page.tsx",
+      "to": "src/app/(app)/admin/integrations/actions.ts",
+      "spec": "./actions"
+    },
+    {
+      "from": "src/server/gemini/analyzers/base-analyzer.ts",
+      "to": "src/server/gemini/gemini-client.ts",
+      "spec": "../gemini-client"
+    },
+    {
+      "from": "src/server/gemini/analyzers/base-analyzer.ts",
+      "to": "src/server/gemini/model-router.ts",
+      "spec": "../model-router"
+    },
+    {
+      "from": "src/server/gemini/analyzers/bom-analyzer.ts",
+      "to": "src/server/gemini/analyzers/base-analyzer.ts",
+      "spec": "./base-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzers/bom-analyzer.ts",
+      "to": "src/server/gemini/model-router.ts",
+      "spec": "../model-router"
+    },
+    {
+      "from": "src/server/gemini/analyzers/code-analyzer.ts",
+      "to": "src/server/gemini/analyzers/base-analyzer.ts",
+      "spec": "./base-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzers/code-analyzer.ts",
+      "to": "src/server/gemini/model-router.ts",
+      "spec": "../model-router"
+    },
+    {
+      "from": "src/server/gemini/analyzers/document-analyzer.ts",
+      "to": "src/server/integrations/gmail/types.ts",
+      "spec": "@/server/integrations/gmail/types"
+    },
+    {
+      "from": "src/server/gemini/analyzers/email-analyzer.ts",
+      "to": "src/server/integrations/gmail/types.ts",
+      "spec": "@/server/integrations/gmail/types"
+    },
+    {
+      "from": "src/server/gemini/analyzers/email-analyzer.ts",
+      "to": "src/server/gemini/gemini-client.ts",
+      "spec": "../gemini-client"
+    },
+    {
+      "from": "src/server/gemini/analyzers/marketing-analyzer.ts",
+      "to": "src/server/gemini/analyzers/base-analyzer.ts",
+      "spec": "./base-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzers/marketing-analyzer.ts",
+      "to": "src/server/gemini/model-router.ts",
+      "spec": "../model-router"
+    },
+    {
+      "from": "src/server/gemini/analyzers/production-analyzer.ts",
+      "to": "src/server/gemini/analyzers/base-analyzer.ts",
+      "spec": "./base-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzers/production-analyzer.ts",
+      "to": "src/server/gemini/model-router.ts",
+      "spec": "../model-router"
+    },
+    {
+      "from": "src/server/gemini/analyzers/quality-analyzer.ts",
+      "to": "src/server/gemini/analyzers/base-analyzer.ts",
+      "spec": "./base-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzers/quality-analyzer.ts",
+      "to": "src/server/gemini/model-router.ts",
+      "spec": "../model-router"
+    },
+    {
+      "from": "src/server/gemini/analyzers/quality-analyzer.ts",
+      "to": "src/types/quality.ts",
+      "spec": "@/types/quality"
+    },
+    {
+      "from": "src/server/gemini/analyzers/sales-analyzer.ts",
+      "to": "src/server/gemini/analyzers/base-analyzer.ts",
+      "spec": "./base-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzers/sales-analyzer.ts",
+      "to": "src/server/gemini/model-router.ts",
+      "spec": "../model-router"
+    },
+    {
+      "from": "src/server/gemini/analyzers/stock-analyzer.ts",
+      "to": "src/server/gemini/analyzers/base-analyzer.ts",
+      "spec": "./base-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzers/stock-analyzer.ts",
+      "to": "src/server/gemini/model-router.ts",
+      "spec": "../model-router"
+    },
+    {
+      "from": "src/server/gemini/analyzers/uiux-analyzer.ts",
+      "to": "src/server/gemini/analyzers/base-analyzer.ts",
+      "spec": "./base-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzers/uiux-analyzer.ts",
+      "to": "src/server/gemini/model-router.ts",
+      "spec": "../model-router"
+    },
+    {
+      "from": "src/server/gemini/analyzers/warehouse-analyzer.ts",
+      "to": "src/server/gemini/analyzers/base-analyzer.ts",
+      "spec": "./base-analyzer"
+    },
+    {
+      "from": "src/server/gemini/analyzers/workitem-analyzer.ts",
+      "to": "src/server/gemini/gemini-client.ts",
+      "spec": "../gemini-client"
+    },
+    {
+      "from": "src/server/gemini/analyzers/workitem-analyzer.ts",
+      "to": "src/lib/ai/safe-generate-json.ts",
+      "spec": "@/lib/ai/safe-generate-json"
+    },
+    {
+      "from": "src/server/gemini/analyzers/workitem-analyzer.ts",
+      "to": "src/server/gemini/analyzers/workitem-schemas.ts",
+      "spec": "./workitem-schemas"
+    },
+    {
+      "from": "src/app/(app)/admin/users/actions.ts",
+      "to": "src/lib/dataprovider/server/index.ts",
+      "spec": "@/lib/dataprovider/server"
+    },
+    {
+      "from": "src/app/(app)/admin/users/actions.ts",
+      "to": "src/config/user-roles.ts",
+      "spec": "@/config/user-roles"
+    },
+    {
+      "from": "src/app/(app)/admin/users/page.tsx",
+      "to": "src/components/admin/UserDrawer.tsx",
+      "spec": "@/components/admin/UserDrawer"
+    },
+    {
+      "from": "src/app/(app)/admin/users/page.tsx",
+      "to": "src/config/user-roles.ts",
+      "spec": "@/config/user-roles"
+    },
+    {
+      "from": "src/app/(app)/admin/integrations-test/page.tsx",
+      "to": "src/components/sync/MasterSyncPanel.tsx",
+      "spec": "@/components/sync/MasterSyncPanel"
+    },
+    {
+      "from": "src/app/(app)/alertas/dashboard/page.tsx",
+      "to": "src/components/dashboards/AlertasDashboard.tsx",
+      "spec": "@/components/dashboards/AlertasDashboard"
+    },
+    {
+      "from": "src/ui/drawers/drawers/AccountQuickView.tsx",
+      "to": "src/components/accounts/AccountDrawer.tsx",
+      "spec": "@/components/accounts/AccountDrawer"
+    },
+    {
+      "from": "src/ui/drawers/drawers/MoveStageDrawer.tsx",
+      "to": "src/components/pipeline/types.ts",
+      "spec": "@/components/pipeline/types"
+    },
+    {
+      "from": "src/ui/drawers/drawers/NewOrderDrawer.tsx",
+      "to": "src/hooks/useDebounce.ts",
+      "spec": "@/hooks/useDebounce"
+    },
+    {
+      "from": "src/ui/drawers/drawers/OpportunityDrawer.tsx",
+      "to": "src/ui/drawers/drawer-registry.tsx",
+      "spec": "@/ui/drawers/drawer-registry"
+    },
+    {
+      "from": "src/ui/drawers/drawers/OpportunityDrawer.tsx",
+      "to": "src/components/pipeline/types.ts",
+      "spec": "@/components/pipeline/types"
+    },
+    {
+      "from": "src/ui/drawers/drawers/ProjectEditDrawer.tsx",
+      "to": "src/domain/projects-tasks-unified.ts",
+      "spec": "@/domain/projects-tasks-unified"
+    },
+    {
+      "from": "src/ui/drawers/drawers/TaskEditDrawer.tsx",
+      "to": "src/domain/projects-tasks-unified.ts",
+      "spec": "@/domain/projects-tasks-unified"
+    },
+    {
+      "from": "src/app/(app)/admin/variables/page.tsx",
+      "to": "src/features/admin/components/SystemConfigEditor.tsx",
+      "spec": "@/features/admin/components/SystemConfigEditor"
+    },
+    {
+      "from": "src/app/(app)/admin/variables/page.tsx",
+      "to": "src/features/admin/actions.ts",
+      "spec": "@/features/admin/actions"
+    },
+    {
+      "from": "src/app/(app)/accounts/[id]/page.tsx",
+      "to": "src/app/(app)/accounts/[id]/ui/AccountEditor.tsx",
+      "spec": "./ui/AccountEditor"
+    },
+    {
+      "from": "src/app/(app)/accounts/[id]/page.tsx",
+      "to": "src/components/accounts/AccountKPIs.tsx",
+      "spec": "@/components/accounts/AccountKPIs"
+    },
+    {
+      "from": "src/app/(app)/accounts/[id]/page.tsx",
+      "to": "src/components/accounts/AccountTimeline.tsx",
+      "spec": "@/components/accounts/AccountTimeline"
+    },
+    {
+      "from": "src/app/(app)/accounts/[id]/page.tsx",
+      "to": "src/app/(app)/accounts/[id]/ui/AccountTimelineSection.tsx",
+      "spec": "./ui/AccountTimelineSection"
+    },
+    {
+      "from": "src/app/(app)/accounts/[id]/page.tsx",
+      "to": "src/app/(app)/accounts/[id]/ui/AccountImportantDates.tsx",
+      "spec": "./ui/AccountImportantDates"
+    },
+    {
+      "from": "src/app/(app)/accounts/[id]/server-actions.ts",
+      "to": "src/lib/stage-utils.ts",
+      "spec": "@/lib/stage-utils"
+    },
+    {
+      "from": "src/app/(app)/dev/analyzer-control-panel/page.tsx",
+      "to": "src/features/dev/analyzer-panel/components/AnalyzerControlPanelContent.tsx",
+      "spec": "@/features/dev/analyzer-panel/components/AnalyzerControlPanelContent"
+    },
+    {
+      "from": "src/app/(app)/compliance/dashboard/ComplianceDashboardClient.tsx",
+      "to": "src/components/compliance/ProtocolRunPanel.tsx",
+      "spec": "@/components/compliance/ProtocolRunPanel"
+    },
+    {
+      "from": "src/app/(app)/compliance/dashboard/page.tsx",
+      "to": "src/app/(app)/compliance/dashboard/ComplianceDashboardClient.tsx",
+      "spec": "./ComplianceDashboardClient"
+    },
+    {
+      "from": "src/app/(app)/dev/db-console/page.tsx",
+      "to": "src/components/ui/ModuleHeader.tsx",
+      "spec": "@/components/ui/ModuleHeader"
+    },
+    {
+      "from": "src/app/(app)/dev/gmail-test/page.tsx",
+      "to": "src/server/integrations/gmail/types.ts",
+      "spec": "@/server/integrations/gmail/types"
+    },
+    {
+      "from": "src/app/(app)/dev/analyzer-panel/page.tsx",
+      "to": "src/features/dev/analyzer-panel/components/AnalyzerPanelContent.tsx",
+      "spec": "@/features/dev/analyzer-panel/components/AnalyzerPanelContent"
+    },
+    {
+      "from": "src/app/(app)/distributor/distribuidores/page.tsx",
+      "to": "src/components/distributors/DistributorsContent.tsx",
+      "spec": "@/components/distributors/DistributorsContent"
+    },
+    {
+      "from": "src/app/(app)/distributor/dashboard/DistributorDashboardClient.tsx",
+      "to": "src/components/ui/KpiCard.tsx",
+      "spec": "@/components/ui/KpiCard"
+    },
+    {
+      "from": "src/app/(app)/distributor/dashboard/DistributorDashboardClient.tsx",
+      "to": "src/components/alerts/AlertsProvider.tsx",
+      "spec": "@/components/alerts/AlertsProvider"
+    },
+    {
+      "from": "src/app/(app)/distributor/dashboard/page.tsx",
+      "to": "src/app/(app)/distributor/dashboard/DistributorDashboardClient.tsx",
+      "spec": "./DistributorDashboardClient"
+    },
+    {
+      "from": "src/app/(app)/dev/intelligence-hub/IntelligenceHubContent.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "@/components/dashboards/shared/KpiCard"
+    },
+    {
+      "from": "src/app/(app)/dev/intelligence-hub/page.tsx",
+      "to": "src/app/(app)/dev/intelligence-hub/IntelligenceHubContent.tsx",
+      "spec": "./IntelligenceHubContent"
+    },
+    {
+      "from": "src/app/(app)/envios/solicitar/page.tsx",
+      "to": "src/components/envios/DestinatarioStep.tsx",
+      "spec": "@/components/envios/DestinatarioStep"
+    },
+    {
+      "from": "src/app/(app)/envios/solicitar/page.tsx",
+      "to": "src/components/envios/ProductosStep.tsx",
+      "spec": "@/components/envios/ProductosStep"
+    },
+    {
+      "from": "src/app/(app)/ejecutivo/dashboard/page.tsx",
+      "to": "src/components/dashboards/DashboardManager.tsx",
+      "spec": "@/components/dashboards/DashboardManager"
+    },
+    {
+      "from": "src/app/(app)/finanzas/dashboard/page.tsx",
+      "to": "src/components/dashboards/DashboardAdmin.tsx",
+      "spec": "@/components/dashboards/DashboardAdmin"
+    },
+    {
+      "from": "src/app/(app)/finanzas/sincronizacion/page.tsx",
+      "to": "src/components/finanzas/HoldedSyncPanel.tsx",
+      "spec": "@/components/finanzas/HoldedSyncPanel"
+    },
+    {
+      "from": "src/app/(app)/finanzas/sincronizacion/page.tsx",
+      "to": "src/components/finanzas/AccountsSyncStatus.tsx",
+      "spec": "@/components/finanzas/AccountsSyncStatus"
+    },
+    {
+      "from": "src/app/(app)/finanzas/tesoreria/page.tsx",
+      "to": "src/components/finanzas/FinanceKPIs.tsx",
+      "spec": "@/components/finanzas/FinanceKPIs"
+    },
+    {
+      "from": "src/app/(app)/marketing/dashboard/page.tsx",
+      "to": "src/components/dashboards/DashboardMarketing_bueno.tsx",
+      "spec": "@/components/dashboards/DashboardMarketing_bueno"
+    },
+    {
+      "from": "src/app/(app)/production/dashboard/page.tsx",
+      "to": "src/features/production/dashboard/components/ProductionDashboard.tsx",
+      "spec": "@/features/production/dashboard/components/ProductionDashboard"
+    },
+    {
+      "from": "src/app/(app)/production/dashboard/page.tsx",
+      "to": "src/features/production/dashboard/lib/data.ts",
+      "spec": "@/features/production/dashboard/lib/data"
+    },
+    {
+      "from": "src/app/(app)/production/execution/page.tsx",
+      "to": "src/features/production/execution/components/ProductionSidebar.tsx",
+      "spec": "@/features/production/execution/components/ProductionSidebar"
+    },
+    {
+      "from": "src/app/(app)/production/execution/page.tsx",
+      "to": "src/features/production/execution/components/ActiveOrderPanel.tsx",
+      "spec": "@/features/production/execution/components/ActiveOrderPanel"
+    },
+    {
+      "from": "src/app/(app)/production/execution/page.tsx",
+      "to": "src/features/production/execution/helpers.ts",
+      "spec": "@/features/production/execution/helpers"
+    },
+    {
+      "from": "src/app/(app)/quality-v2/appcc/AppccDashboardClient.tsx",
+      "to": "src/app/(app)/quality-v2/appcc/components/AppccControlDrawer.tsx",
+      "spec": "./components/AppccControlDrawer"
+    },
+    {
+      "from": "src/app/(app)/quality-v2/appcc/page.tsx",
+      "to": "src/app/(app)/quality-v2/appcc/AppccDashboardClient.tsx",
+      "spec": "./AppccDashboardClient"
+    },
+    {
+      "from": "src/app/(app)/production/bom/page.tsx",
+      "to": "src/components/dashboards/shared/KpiCard.tsx",
+      "spec": "@/components/dashboards/shared/KpiCard"
+    },
+    {
+      "from": "src/app/(app)/production/bom/page.tsx",
+      "to": "src/domain/uom.ts",
+      "spec": "@/domain/uom"
+    },
+    {
+      "from": "src/app/(app)/production/bom/page.tsx",
+      "to": "src/components/ui/Banner.tsx",
+      "spec": "@/components/ui/Banner"
+    },
+    {
+      "from": "src/app/(app)/production/bom/page.tsx",
+      "to": "src/components/ui/SpinnerButton.tsx",
+      "spec": "@/components/ui/SpinnerButton"
+    },
+    {
+      "from": "src/app/(app)/production/bom/page.tsx",
+      "to": "src/components/forms/Field.tsx",
+      "spec": "@/components/forms/Field"
+    },
+    {
+      "from": "src/app/(app)/production/bom/page.tsx",
+      "to": "src/features/bom/useBomForm.ts",
+      "spec": "@/features/bom/useBomForm"
+    },
+    {
+      "from": "src/app/(app)/production/bom/page.tsx",
+      "to": "src/server/gemini/analyzers/bom-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/bom-analyzer"
+    },
+    {
+      "from": "src/app/(app)/production/bom/page.tsx",
+      "to": "src/components/ui/FormStatusBar.tsx",
+      "spec": "@/components/ui/FormStatusBar"
+    },
+    {
+      "from": "src/app/(app)/production/bom/page.tsx",
+      "to": "src/components/bom/BomContent.tsx",
+      "spec": "@/components/bom/BomContent"
+    },
+    {
+      "from": "src/app/(app)/production/bom/page.tsx",
+      "to": "src/types/bom.ts",
+      "spec": "@/types/bom"
+    },
+    {
+      "from": "src/app/(app)/quality-v2/documents/page.tsx",
+      "to": "src/app/(app)/quality-v2/documents/DocumentsLibraryClient.tsx",
+      "spec": "./DocumentsLibraryClient"
+    },
+    {
+      "from": "src/app/(app)/quality-v2/lots/LotsManagementClient.tsx",
+      "to": "src/components/quality-v2/LotQcDrawer.tsx",
+      "spec": "@/components/quality-v2/LotQcDrawer"
+    },
+    {
+      "from": "src/app/(app)/quality-v2/lots/page.tsx",
+      "to": "src/app/(app)/quality-v2/lots/LotsManagementClient.tsx",
+      "spec": "./LotsManagementClient"
+    },
+    {
+      "from": "src/app/(app)/quality-v2/dashboard/QualityV2DashboardClient.tsx",
+      "to": "src/components/quality-v2/LotQcDrawer.tsx",
+      "spec": "@/components/quality-v2/LotQcDrawer"
+    },
+    {
+      "from": "src/app/(app)/quality-v2/dashboard/page.tsx",
+      "to": "src/app/(app)/quality-v2/dashboard/QualityDashboardExecutive.tsx",
+      "spec": "./QualityDashboardExecutive"
+    },
+    {
+      "from": "src/app/(app)/tasks/new/page.tsx",
+      "to": "src/features/tasks/actions.ts",
+      "spec": "@/features/tasks/actions"
+    },
+    {
+      "from": "src/app/(app)/tasks/new/page.tsx",
+      "to": "src/features/tasks/components/UserSelector.tsx",
+      "spec": "@/features/tasks/components/UserSelector"
+    },
+    {
+      "from": "src/app/(app)/quality-v2/library/page.tsx",
+      "to": "src/app/(app)/quality-v2/library/MethodsLibraryClient.tsx",
+      "spec": "./MethodsLibraryClient"
+    },
+    {
+      "from": "src/app/(app)/quality/dashboard/page.tsx",
+      "to": "src/server/gemini/analyzers/quality-analyzer.ts",
+      "spec": "@/server/gemini/analyzers/quality-analyzer"
+    },
+    {
+      "from": "src/app/(app)/quality/dashboard/page.tsx",
+      "to": "src/components/quality/QualityBadge.tsx",
+      "spec": "@/components/quality/QualityBadge"
+    },
+    {
+      "from": "src/app/(app)/quality/dashboard/page.tsx",
+      "to": "src/components/quality/GeminiAlertsCard.tsx",
+      "spec": "@/components/quality/GeminiAlertsCard"
+    },
+    {
+      "from": "src/app/(app)/quality/dashboard/page.tsx",
+      "to": "src/components/ui/ModuleHeader.tsx",
+      "spec": "@/components/ui/ModuleHeader"
+    },
+    {
+      "from": "src/app/(app)/quality/parametros/actions.ts",
+      "to": "src/app/(app)/quality/parametros/schemas.ts",
+      "spec": "./schemas"
+    },
+    {
+      "from": "src/app/(app)/quality/parametros/actions.ts",
+      "to": "src/app/(app)/quality/parametros/schemas.ts",
+      "spec": "./schemas"
+    },
+    {
+      "from": "src/app/(app)/quality/releases/QualityReleasesClient.tsx",
+      "to": "src/components/ui/ModuleHeader.tsx",
+      "spec": "@/components/ui/ModuleHeader"
+    },
+    {
+      "from": "src/app/(app)/quality/releases/QualityReleasesClient.tsx",
+      "to": "src/components/quality/QualityBadge.tsx",
+      "spec": "@/components/quality/QualityBadge"
+    },
+    {
+      "from": "src/app/(app)/quality/releases/page.tsx",
+      "to": "src/app/(app)/quality/releases/QualityReleasesClient.tsx",
+      "spec": "./QualityReleasesClient"
+    },
+    {
+      "from": "src/app/(app)/quality/lots/QualityLotsClient.tsx",
+      "to": "src/components/ui/ModuleHeader.tsx",
+      "spec": "@/components/ui/ModuleHeader"
+    },
+    {
+      "from": "src/app/(app)/quality/lots/QualityLotsClient.tsx",
+      "to": "src/components/quality/QualityBadge.tsx",
+      "spec": "@/components/quality/QualityBadge"
+    },
+    {
+      "from": "src/app/(app)/quality/lots/QualityLotsClient.tsx",
+      "to": "src/components/quality/ReleaseLotDrawer.tsx",
+      "spec": "@/components/quality/ReleaseLotDrawer"
+    },
+    {
+      "from": "src/app/(app)/quality/lots/QualityLotsClient.tsx",
+      "to": "src/components/quality/GeminiAlertsCard.tsx",
+      "spec": "@/components/quality/GeminiAlertsCard"
+    },
+    {
+      "from": "src/app/(app)/quality/lots/QualityLotsClient.tsx",
+      "to": "src/types/quality.ts",
+      "spec": "@/types/quality"
+    },
+    {
+      "from": "src/app/(app)/quality/lots/QualityLotsClient.tsx",
+      "to": "src/types/quality.ts",
+      "spec": "@/types/quality"
+    },
+    {
+      "from": "src/app/(app)/quality/lots/page.tsx",
+      "to": "src/app/(app)/quality/lots/QualityLotsClient.tsx",
+      "spec": "./QualityLotsClient"
+    },
+    {
+      "from": "src/app/(app)/quality/traceability/QualityTraceabilityClient.tsx",
+      "to": "src/components/ui/ModuleHeader.tsx",
+      "spec": "@/components/ui/ModuleHeader"
+    },
+    {
+      "from": "src/app/(app)/quality/traceability/QualityTraceabilityClient.tsx",
+      "to": "src/components/quality/GeminiAlertsCard.tsx",
+      "spec": "@/components/quality/GeminiAlertsCard"
+    },
+    {
+      "from": "src/app/(app)/quality/traceability/QualityTraceabilityClient.tsx",
+      "to": "src/components/ui/Avatar.tsx",
+      "spec": "@/components/ui/Avatar"
+    },
+    {
+      "from": "src/app/(app)/quality/traceability/QualityTraceabilityClient.tsx",
+      "to": "src/app/(app)/quality/traceability/actions.ts",
+      "spec": "./actions"
+    },
+    {
+      "from": "src/app/(app)/quality/traceability/page.tsx",
+      "to": "src/app/(app)/quality/traceability/QualityTraceabilityClient.tsx",
+      "spec": "./QualityTraceabilityClient"
+    },
+    {
+      "from": "src/app/(app)/technical/dashboard/page.tsx",
+      "to": "src/components/dashboards/DashboardTechnical.tsx",
+      "spec": "@/components/dashboards/DashboardTechnical"
+    },
+    {
+      "from": "src/app/(app)/quality/plans/QualityPlansClient.tsx",
+      "to": "src/components/ui/ModuleHeader.tsx",
+      "spec": "@/components/ui/ModuleHeader"
+    },
+    {
+      "from": "src/app/(app)/quality/plans/QualityPlansClient.tsx",
+      "to": "src/components/quality/GeminiAlertsCard.tsx",
+      "spec": "@/components/quality/GeminiAlertsCard"
+    },
+    {
+      "from": "src/app/(app)/quality/plans/QualityPlansClient.tsx",
+      "to": "src/components/quality/QcPlanDrawer.tsx",
+      "spec": "@/components/quality/QcPlanDrawer"
+    },
+    {
+      "from": "src/app/(app)/quality/plans/QualityPlansClient.tsx",
+      "to": "src/components/quality/QcPlanEditorDrawer.tsx",
+      "spec": "@/components/quality/QcPlanEditorDrawer"
+    },
+    {
+      "from": "src/app/(app)/quality/plans/page.tsx",
+      "to": "src/app/(app)/quality/plans/QualityPlansClient.tsx",
+      "spec": "./QualityPlansClient"
+    },
+    {
+      "from": "src/app/(app)/ventas/dashboard/page.tsx",
+      "to": "src/components/dashboards/DashboardSales.tsx",
+      "spec": "@/components/dashboards/DashboardSales"
+    },
+    {
+      "from": "src/app/(app)/ventas/clientes/page.tsx",
+      "to": "src/components/clientes/ClientesListView.tsx",
+      "spec": "@/components/clientes/ClientesListView"
+    },
+    {
+      "from": "src/app/(app)/ventas/analytics/page.tsx",
+      "to": "src/components/analytics/AnalyticsContent.tsx",
+      "spec": "@/components/analytics/AnalyticsContent"
+    },
+    {
+      "from": "src/app/(app)/ventas/pedidos/page.tsx",
+      "to": "src/components/orders/PedidosContent.tsx",
+      "spec": "@/components/orders/PedidosContent"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/app/(app)/warehouse/inventory/components/NewOnHandDialog.tsx",
+      "spec": "./components/NewOnHandDialog"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/app/(app)/warehouse/inventory/components/NewItemDrawer.tsx",
+      "spec": "./components/NewItemDrawer"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/app/(app)/warehouse/inventory/components/SupplierDrawer.tsx",
+      "spec": "./components/SupplierDrawer"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/components/ui/tabs.tsx",
+      "spec": "@/components/ui/tabs"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/app/(app)/warehouse/inventory/components/LotDetailPanel.tsx",
+      "spec": "./components/LotDetailPanel"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/app/(app)/warehouse/inventory/components/SkuAccordionRow.tsx",
+      "spec": "./components/SkuAccordionRow"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/app/(app)/warehouse/inventory/components/LotRows.tsx",
+      "spec": "./components/LotRows"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/features/warehouse/components/InventoryDashboard.tsx",
+      "spec": "@/features/warehouse/components/InventoryDashboard"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/features/warehouse/components/GoodsReceiptDrawer.tsx",
+      "spec": "@/features/warehouse/components/GoodsReceiptDrawer"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/components/ui/ModuleHeader.tsx",
+      "spec": "@/components/ui/ModuleHeader"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/features/warehouse/inventory/components/InventoryFiltersBar.tsx",
+      "spec": "@/features/warehouse/inventory/components/InventoryFiltersBar"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/features/warehouse/inventory/hooks/useInventoryFilters.ts",
+      "spec": "@/features/warehouse/inventory/hooks/useInventoryFilters"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/features/warehouse/inventory/hooks/useInventoryData.ts",
+      "spec": "@/features/warehouse/inventory/hooks/useInventoryData"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/domain/businessRules.ts",
+      "spec": "@/domain/businessRules"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "to": "src/config/inventory.ts",
+      "spec": "@/config/inventory"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/page.tsx",
+      "to": "src/app/(app)/warehouse/inventory/InventoryClient.tsx",
+      "spec": "./InventoryClient"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/page.tsx",
+      "to": "src/components/ErrorBoundary.tsx",
+      "spec": "@/components/ErrorBoundary"
+    },
+    {
+      "from": "src/app/api/admin/gemini-metrics/route.ts",
+      "to": "src/lib/telemetry/gemini-telemetry.ts",
+      "spec": "@/lib/telemetry/gemini-telemetry"
+    },
+    {
+      "from": "src/app/api/admin/gemini-metrics/route.ts",
+      "to": "src/lib/cache/gemini-cache.ts",
+      "spec": "@/lib/cache/gemini-cache"
+    },
+    {
+      "from": "src/app/api/admin/gemini-metrics/route.ts",
+      "to": "src/lib/resilience/circuit-breaker.ts",
+      "spec": "@/lib/resilience/circuit-breaker"
+    },
+    {
+      "from": "src/app/(app)/ventas/pipeline/PipelineClient.tsx",
+      "to": "src/components/pipeline/PipelineBoard.tsx",
+      "spec": "@/components/pipeline/PipelineBoard"
+    },
+    {
+      "from": "src/app/(app)/ventas/pipeline/PipelineClient.tsx",
+      "to": "src/components/pipeline/PipelineList.tsx",
+      "spec": "@/components/pipeline/PipelineList"
+    },
+    {
+      "from": "src/app/(app)/ventas/pipeline/PipelineClient.tsx",
+      "to": "src/components/pipeline/types.ts",
+      "spec": "@/components/pipeline/types"
+    },
+    {
+      "from": "src/app/(app)/ventas/pipeline/PipelineClient.tsx",
+      "to": "src/lib/pipeline-helpers.ts",
+      "spec": "@/lib/pipeline-helpers"
+    },
+    {
+      "from": "src/app/(app)/ventas/pipeline/page.tsx",
+      "to": "src/app/(app)/ventas/pipeline/PipelineClient.tsx",
+      "spec": "./PipelineClient"
+    },
+    {
+      "from": "src/app/api/gmail/sync/route.ts",
+      "to": "src/server/integrations/gmail/client.ts",
+      "spec": "@/server/integrations/gmail/client"
+    },
+    {
+      "from": "src/app/api/gmail/sync/route.ts",
+      "to": "src/server/integrations/gmail/sync.ts",
+      "spec": "@/server/integrations/gmail/sync"
+    },
+    {
+      "from": "src/app/api/gmail/test/route.ts",
+      "to": "src/server/integrations/gmail/client.ts",
+      "spec": "@/server/integrations/gmail/client"
+    },
+    {
+      "from": "src/app/api/tasks/create/route.ts",
+      "to": "src/features/tasks/actions.ts",
+      "spec": "@/features/tasks/actions"
+    },
+    {
+      "from": "src/app/api/webhooks/gmail/route.ts",
+      "to": "src/server/integrations/gmail/client.ts",
+      "spec": "@/server/integrations/gmail/client"
+    },
+    {
+      "from": "src/app/api/webhooks/gmail/route.ts",
+      "to": "src/server/integrations/gmail/sync.ts",
+      "spec": "@/server/integrations/gmail/sync"
+    },
+    {
+      "from": "src/app/api/webhooks/sendcloud/route.ts",
+      "to": "src/server/gemini/context-logger.ts",
+      "spec": "@/server/gemini/context-logger"
+    },
+    {
+      "from": "src/app/api/webhooks/holded/route.ts",
+      "to": "src/server/gemini/context-logger.ts",
+      "spec": "@/server/gemini/context-logger"
+    },
+    {
+      "from": "src/features/production/dashboard/components/ProductionDashboard.tsx",
+      "to": "src/features/production/dashboard/components/ProductionOrdersTable.tsx",
+      "spec": "./ProductionOrdersTable"
+    },
+    {
+      "from": "src/features/production/dashboard/components/ProductionDashboard.tsx",
+      "to": "src/features/production/execution/components/ProductionExecutionDrawer.tsx",
+      "spec": "../../execution/components/ProductionExecutionDrawer"
+    },
+    {
+      "from": "src/features/production/execution/components/ActiveOrderPanel.tsx",
+      "to": "src/features/production/execution/components/StockCheckPanel.tsx",
+      "spec": "./StockCheckPanel"
+    },
+    {
+      "from": "src/features/production/execution/components/ActiveOrderPanel.tsx",
+      "to": "src/features/production/execution/components/RealConsumptionPanel.tsx",
+      "spec": "./RealConsumptionPanel"
+    },
+    {
+      "from": "src/features/production/execution/components/ActiveOrderPanel.tsx",
+      "to": "src/features/production/execution/components/RightSidebarPanel.tsx",
+      "spec": "./RightSidebarPanel"
+    },
+    {
+      "from": "src/features/production/execution/components/ActiveOrderPanel.tsx",
+      "to": "src/features/production/execution/helpers.ts",
+      "spec": "../helpers"
+    },
+    {
+      "from": "src/features/production/execution/components/ProductionExecutionDrawer.tsx",
+      "to": "src/features/production/execution/components/ProductionStepper.tsx",
+      "spec": "./ProductionStepper"
+    },
+    {
+      "from": "src/features/production/execution/components/ProductionStepper.tsx",
+      "to": "src/features/production/execution/components/PreFlightChecksStep.tsx",
+      "spec": "./PreFlightChecksStep"
+    },
+    {
+      "from": "src/features/production/execution/components/ProductionStepper.tsx",
+      "to": "src/features/production/execution/components/ExecuteIngredientStep.tsx",
+      "spec": "./ExecuteIngredientStep"
+    },
+    {
+      "from": "src/features/production/execution/components/ProductionStepper.tsx",
+      "to": "src/features/production/execution/components/FormulaAdjustmentStep.tsx",
+      "spec": "./FormulaAdjustmentStep"
+    },
+    {
+      "from": "src/features/production/execution/components/ProductionStepper.tsx",
+      "to": "src/features/production/execution/components/CloseAndWasteStep.tsx",
+      "spec": "./CloseAndWasteStep"
+    },
+    {
+      "from": "src/features/production/execution/components/RealConsumptionPanel.tsx",
+      "to": "src/features/production/components/ui.tsx",
+      "spec": "../../components/ui"
+    },
+    {
+      "from": "src/features/production/execution/components/StockCheckPanel.tsx",
+      "to": "src/features/production/components/ui.tsx",
+      "spec": "../../components/ui"
+    },
+    {
+      "from": "src/features/warehouse/inventory/components/InventoryFiltersBar.tsx",
+      "to": "src/features/warehouse/inventory/hooks/useInventoryFilters.ts",
+      "spec": "../hooks/useInventoryFilters"
+    },
+    {
+      "from": "src/features/warehouse/inventory/components/SkuAccordionRow.tsx",
+      "to": "src/lib/inventory.ts",
+      "spec": "@/lib/inventory"
+    },
+    {
+      "from": "src/features/warehouse/inventory/components/SkuAccordionRow.tsx",
+      "to": "src/domain/qc-status.ts",
+      "spec": "@/domain/qc-status"
+    },
+    {
+      "from": "src/features/warehouse/inventory/hooks/useInventoryData.ts",
+      "to": "src/domain/inventory.helpers.ts",
+      "spec": "@/domain/inventory.helpers"
+    },
+    {
+      "from": "src/features/warehouse/inventory/hooks/useInventoryData.ts",
+      "to": "src/lib/inventory.ts",
+      "spec": "@/lib/inventory"
+    },
+    {
+      "from": "src/features/warehouse/inventory/hooks/useInventoryData.ts",
+      "to": "src/config/inventory.ts",
+      "spec": "@/config/inventory"
+    },
+    {
+      "from": "src/features/warehouse/inventory/hooks/useInventoryFilters.ts",
+      "to": "src/domain/qc-status.ts",
+      "spec": "@/domain/qc-status"
+    },
+    {
+      "from": "src/app/(app)/admin/brain/gemini/page.tsx",
+      "to": "src/components/gemini/GeminiDashboard.tsx",
+      "spec": "@/components/gemini/GeminiDashboard"
+    },
+    {
+      "from": "src/app/(app)/envios/tracking/[code]/page.tsx",
+      "to": "src/components/envios/TrackingTimeline.tsx",
+      "spec": "@/components/envios/TrackingTimeline"
+    },
+    {
+      "from": "src/app/(app)/envios/tracking/[code]/page.tsx",
+      "to": "src/components/envios/ShipmentDetails.tsx",
+      "spec": "@/components/envios/ShipmentDetails"
+    },
+    {
+      "from": "src/app/(app)/accounts/[id]/ui/AccountEditor.tsx",
+      "to": "src/app/(app)/accounts/[id]/server-actions.ts",
+      "spec": "../server-actions"
+    },
+    {
+      "from": "src/app/(app)/accounts/[id]/ui/AccountEditor.tsx",
+      "to": "src/lib/firebase-storage.ts",
+      "spec": "@/lib/firebase-storage"
+    },
+    {
+      "from": "src/app/(app)/accounts/[id]/ui/AccountEditor.tsx",
+      "to": "src/lib/firebase-storage.ts",
+      "spec": "@/lib/firebase-storage"
+    },
+    {
+      "from": "src/app/(app)/accounts/[id]/ui/AccountEditor.tsx",
+      "to": "src/app/(app)/accounts/[id]/server-actions.ts",
+      "spec": "../server-actions"
+    },
+    {
+      "from": "src/app/(app)/accounts/[id]/ui/AccountImportantDates.tsx",
+      "to": "src/app/(app)/accounts/[id]/server-actions.ts",
+      "spec": "../server-actions"
+    },
+    {
+      "from": "src/app/(app)/accounts/[id]/ui/AccountTimelineSection.tsx",
+      "to": "src/components/accounts/AccountTimeline.tsx",
+      "spec": "@/components/accounts/AccountTimeline"
+    },
+    {
+      "from": "src/app/api/integrations/shopify/import-order/route.ts",
+      "to": "src/server/integrations/shopify/import-order.ts",
+      "spec": "@/server/integrations/shopify/import-order"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/components/LotDetailPanel.tsx",
+      "to": "src/app/(app)/warehouse/inventory/components/SkuAccordionRow.tsx",
+      "spec": "./SkuAccordionRow"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/components/LotRows.tsx",
+      "to": "src/app/(app)/warehouse/inventory/components/SkuAccordionRow.tsx",
+      "spec": "./SkuAccordionRow"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/components/ManualAdjustmentDrawer.tsx",
+      "to": "src/domain/uom.ts",
+      "spec": "@/domain/uom"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/components/ManualAdjustmentDrawer.tsx",
+      "to": "src/lib/firebase-storage.ts",
+      "spec": "@/lib/firebase-storage"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/components/NewItemDrawer.tsx",
+      "to": "src/domain/uom.ts",
+      "spec": "@/domain/uom"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/components/NewOnHandDialog.tsx",
+      "to": "src/domain/uom.ts",
+      "spec": "@/domain/uom"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/components/NewOnHandDialog.tsx",
+      "to": "src/lib/firebase-storage.ts",
+      "spec": "@/lib/firebase-storage"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/components/SkuAccordionRow.tsx",
+      "to": "src/lib/inventory.ts",
+      "spec": "@/lib/inventory"
+    },
+    {
+      "from": "src/app/(app)/warehouse/inventory/components/SkuAccordionRow.tsx",
+      "to": "src/app/(app)/warehouse/inventory/components/ItemDetailDrawer.tsx",
+      "spec": "./ItemDetailDrawer"
+    },
+    {
+      "from": "src/app/(app)/@drawer/(.)ventas/sell-in/[id]/page.tsx",
+      "to": "src/components/drawers/EntityDrawerShell.tsx",
+      "spec": "@/components/drawers/EntityDrawerShell"
+    },
+    {
+      "from": "src/app/api/shipment/[shipmentId]/delivery-note/route.ts",
+      "to": "src/lib/dataprovider/server/index.ts",
+      "spec": "@/lib/dataprovider/server"
+    },
+    {
+      "from": "src/app/(app)/@drawer/(.)ventas/pedidos/[id]/page.tsx",
+      "to": "src/components/drawers/EntityDrawerShell.tsx",
+      "spec": "@/components/drawers/EntityDrawerShell"
+    },
+    {
+      "from": "src/app/(app)/@drawer/(.)ventas/pedidos/[id]/page.tsx",
+      "to": "src/components/orders/ChangeStatusModal.tsx",
+      "spec": "@/components/orders/ChangeStatusModal"
+    },
+    {
+      "from": "src/app/(app)/@drawer/(.)ventas/pedidos/[id]/page.tsx",
+      "to": "src/types/orders.ts",
+      "spec": "@/types/orders"
+    },
+    {
+      "from": "src/app/(app)/@drawer/(.)ventas/pedidos/[id]/page.tsx",
+      "to": "src/types/orders.ts",
+      "spec": "@/types/orders"
+    },
+    {
+      "from": "src/app/(app)/@drawer/(.)ventas/clientes/[id]/page.tsx",
+      "to": "src/components/accounts/AccountDrawer.tsx",
+      "spec": "@/components/accounts/AccountDrawer"
+    }
+  ]
+}

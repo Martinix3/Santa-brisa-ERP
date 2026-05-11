@@ -1,0 +1,41 @@
+{
+  "keep": [
+    "src/domain/ssot.ts",
+    "src/domain/ssot-schemas.ts",
+    "src/domain/ssot-v2-plus-schemas.ts",
+    "src/domain/bom-schemas.ts",
+    "src/domain/qc-plan-helpers.ts",
+
+    "src/services/canonical/**/*.ts",
+    "src/services/canonical/**/*.tsx",
+
+    "src/server/actions/**/*.ts",
+    "src/server/actions/**/*.tsx",
+    "src/server/firebase.ts",
+    
+    "src/lib/dataprovider.tsx",
+    "src/lib/utils.ts",
+    "src/lib/result.ts",
+
+    "src/components/ui/ui-primitives.tsx",
+    "src/components/ui/SBDialog.tsx",
+    
+    "src/components/layout/Sidebar.tsx",
+    "src/components/layout/DynamicHeader.tsx",
+    "src/components/layout/ProfileDrawer.tsx",
+    "src/components/layout/BottomNav.tsx",
+    
+    "src/ui/drawers/DrawerController.tsx",
+    "src/components/drawers/BaseDrawer.tsx",
+
+    "src/app/layout.tsx",
+    "src/app/ClientProviders.tsx",
+    "src/app/api/**/*.ts",
+    "src/app/api/**/*.tsx"
+  ],
+  "exclude": [
+    "src/**/*.d.ts",
+    "src/tests/**/*",
+    "tests/**/*"
+  ]
+}

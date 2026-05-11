@@ -1,0 +1,17 @@
+/* app/globals.css — PUNTO DE ENTRADA ÚNICO */
+
+/* 1. Carga la configuración y el framework (SOLO AQUÍ) */
+@config "../../tailwind.config.ts";
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+/* 2. Importa tus ficheros de diseño en orden */
+@import "../styles/tokens.css";
+@import "../styles/components.css";
+@import "../styles/stage-colors.css";
+
+/* 3. Estilos base del body que no van en otro sitio */
+body {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

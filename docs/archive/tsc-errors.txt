@@ -1,0 +1,158 @@
+scripts/codemods/lotNumber-to-lotCode.ts(2,44): error TS7016: Could not find a declaration file for module 'jscodeshift'. '/Users/martinjaimesamperiz/Santa-brisa-ERP/node_modules/jscodeshift/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/jscodeshift` if it exists or add a new declaration (.d.ts) file containing `declare module 'jscodeshift';`
+scripts/codemods/lotNumber-to-lotCode.ts(20,14): error TS7006: Parameter 'path' implicitly has an 'any' type.
+scripts/codemods/lotNumber-to-lotCode.ts(30,14): error TS7006: Parameter 'p' implicitly has an 'any' type.
+scripts/codemods/lotNumber-to-lotCode.ts(35,38): error TS7006: Parameter 'p' implicitly has an 'any' type.
+scripts/codemods/lotNumber-to-lotCode.ts(36,32): error TS7006: Parameter 'prop' implicitly has an 'any' type.
+scripts/codemods/lotNumber-to-lotCode.ts(54,14): error TS7006: Parameter 'path' implicitly has an 'any' type.
+scripts/codemods/lotNumber-to-lotCode.ts(69,14): error TS7006: Parameter 'path' implicitly has an 'any' type.
+scripts/codemods/warehouse-to-location.ts(5,44): error TS7016: Could not find a declaration file for module 'jscodeshift'. '/Users/martinjaimesamperiz/Santa-brisa-ERP/node_modules/jscodeshift/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/jscodeshift` if it exists or add a new declaration (.d.ts) file containing `declare module 'jscodeshift';`
+scripts/codemods/warehouse-to-location.ts(13,76): error TS7006: Parameter 'p' implicitly has an 'any' type.
+scripts/codemods/warehouse-to-location.ts(15,89): error TS7006: Parameter 'p' implicitly has an 'any' type.
+scripts/codemods/warehouse-to-location.ts(17,37): error TS7006: Parameter 'p' implicitly has an 'any' type.
+scripts/codemods/warehouse-to-location.ts(18,34): error TS7006: Parameter 'pr' implicitly has an 'any' type.
+src/app/(app)/admin/brain/BrainPanel.tsx(17,10): error TS2724: '"@/server/actions/campaigns.actions"' has no exported member named 'getCampaigns'. Did you mean 'getCampaignStats'?
+src/app/(app)/admin/brain/CampaignCard.tsx(12,10): error TS2724: '"@/server/actions/campaigns.actions"' has no exported member named 'updateCampaignStatus'. Did you mean 'updateCampaignSpent'?
+src/app/(app)/admin/brain/CreateCampaignDialog.tsx(12,10): error TS2305: Module '"@/server/actions/campaigns.actions"' has no exported member 'createCampaign'.
+src/app/(app)/compliance/dashboard/ComplianceDashboardClient.tsx(28,27): error TS2554: Expected 2 arguments, but got 1.
+src/app/(app)/compliance/dashboard/page.tsx(6,37): error TS2322: Type 'ActionResult<{ id: string; status: "PAUSED" | "OVERDUE" | "SCHEDULED" | "DUE"; createdAt: Date; updatedAt: Date; category: "PRODUCCION" | "FORMACION" | "PLAGAS" | "AGUAS" | "LIMPIEZA" | ... 4 more ... | "RND"; ... 10 more ...; reminderTaskId?: string | undefined; }[]>' is not assignable to type 'Schedule[]'.
+  Type '{ success: false; error: string; }' is missing the following properties from type 'Schedule[]': length, pop, push, concat, and 35 more.
+src/app/(app)/quality-v2/dashboard/page.tsx(2,10): error TS2305: Module '"@/server/actions/quality-v2.actions"' has no exported member 'getQualityV2Snapshot'.
+src/app/(app)/quality-v2/dashboard/QualityV2DashboardClient.tsx(45,15): error TS2322: Type '{ children: Element[]; defaultValue: string; }' is not assignable to type 'IntrinsicAttributes & SBCardProps'.
+  Property 'defaultValue' does not exist on type 'IntrinsicAttributes & SBCardProps'.
+src/app/(app)/quality-v2/dashboard/QualityV2DashboardClient.tsx(52,24): error TS2322: Type '{ children: Element; value: string; }' is not assignable to type 'IntrinsicAttributes & SBCardProps'.
+  Property 'value' does not exist on type 'IntrinsicAttributes & SBCardProps'.
+src/app/(app)/quality-v2/dashboard/QualityV2DashboardClient.tsx(55,24): error TS2322: Type '{ children: Element; value: string; }' is not assignable to type 'IntrinsicAttributes & SBCardProps'.
+  Property 'value' does not exist on type 'IntrinsicAttributes & SBCardProps'.
+src/app/(app)/quality-v2/dashboard/QualityV2DashboardClient.tsx(58,24): error TS2322: Type '{ children: Element; value: string; }' is not assignable to type 'IntrinsicAttributes & SBCardProps'.
+  Property 'value' does not exist on type 'IntrinsicAttributes & SBCardProps'.
+src/app/(app)/quality-v2/library/MethodsLibraryClient.tsx(16,46): error TS2554: Expected 2 arguments, but got 1.
+src/app/(app)/quality-v2/library/MethodsLibraryClient.tsx(32,46): error TS2554: Expected 2 arguments, but got 1.
+src/app/(app)/quality-v2/library/page.tsx(5,22): error TS2554: Expected 1 arguments, but got 0.
+src/app/(app)/quality-v2/library/page.tsx(6,11): error TS2322: Type '{ success: false; error: string; } | { success: true; data: { id: string; code: string; status: "ACTIVE" | "RETIRED"; createdAt: Date; updatedAt: Date; name: string; version: number; ... 10 more ...; appliesToScopes?: ("PACK" | ... 2 more ... | "INTERMEDIATE")[] | undefined; }[]; }' is not assignable to type 'IntrinsicAttributes & { methods: any[]; parameters: any[]; }'.
+  Type '{ success: false; error: string; }' is missing the following properties from type '{ methods: any[]; parameters: any[]; }': methods, parameters
+src/app/(app)/quality/plans/QualityPlansClient.tsx(29,29): error TS2344: Type 'QcPlanTrigger[]' does not satisfy the constraint 'string | number | symbol'.
+src/app/(app)/quality/plans/QualityPlansClient.tsx(109,13): error TS2367: This comparison appears to be unintentional because the types 'QcPlanTrigger[]' and 'string' have no overlap.
+src/app/(app)/quality/plans/QualityPlansClient.tsx(326,61): error TS2538: Type 'QcPlanTrigger[]' cannot be used as an index type.
+src/components/compliance/ProtocolRunPanel.tsx(26,49): error TS2554: Expected 2 arguments, but got 3.
+src/components/compliance/ProtocolRunPanel.tsx(36,13): error TS2322: Type '{ children: Element; open: true; onOpenChange: (o: any) => false | void; }' is not assignable to type 'IntrinsicAttributes & SBCardProps'.
+  Property 'open' does not exist on type 'IntrinsicAttributes & SBCardProps'.
+src/components/compliance/ProtocolRunPanel.tsx(36,33): error TS7006: Parameter 'o' implicitly has an 'any' type.
+src/components/drawers/BaseDrawer.tsx(243,69): error TS2367: This comparison appears to be unintentional because the types 'boolean' and 'string' have no overlap.
+src/components/quality-v2/LotDocumentsPanel.tsx(4,36): error TS2307: Cannot find module '@/components/ui/SBButton' or its corresponding type declarations.
+src/components/quality-v2/QcResultsForm.tsx(39,32): error TS2322: Type '{ children: Element[]; value: string | undefined; onValueChange: Dispatch<SetStateAction<string | undefined>>; }' is not assignable to type 'IntrinsicAttributes & SelectHTMLAttributes<HTMLSelectElement> & RefAttributes<HTMLSelectElement>'.
+  Property 'onValueChange' does not exist on type 'IntrinsicAttributes & SelectHTMLAttributes<HTMLSelectElement> & RefAttributes<HTMLSelectElement>'. Did you mean 'onVolumeChange'?
+src/components/quality-v2/QcResultsForm.tsx(40,39): error TS2322: Type '{ placeholder: string; }' is not assignable to type 'IntrinsicAttributes & ClassAttributes<HTMLSpanElement> & HTMLAttributes<HTMLSpanElement>'.
+  Property 'placeholder' does not exist on type 'IntrinsicAttributes & ClassAttributes<HTMLSpanElement> & HTMLAttributes<HTMLSpanElement>'.
+src/components/quality-v2/QcResultsForm.tsx(60,51): error TS2322: Type '{ children: Element[]; value: "FAIL" | "NA" | "OK"; onValueChange: (v: any) => void; }' is not assignable to type 'IntrinsicAttributes & SelectHTMLAttributes<HTMLSelectElement> & RefAttributes<HTMLSelectElement>'.
+  Property 'onValueChange' does not exist on type 'IntrinsicAttributes & SelectHTMLAttributes<HTMLSelectElement> & RefAttributes<HTMLSelectElement>'. Did you mean 'onVolumeChange'?
+src/components/quality/GeminiAlertsCard.tsx(155,23): error TS2339: Property 'lotNumber' does not exist on type 'PredictiveAlert'.
+src/components/quality/GeminiAlertsCard.tsx(157,26): error TS2339: Property 'lotNumber' does not exist on type 'PredictiveAlert'.
+src/components/quality/GeminiAlertsCard.tsx(159,36): error TS2339: Property 'lotNumber' does not exist on type 'PredictiveAlert'.
+src/components/quality/QcPlanDrawer.tsx(112,15): error TS2367: This comparison appears to be unintentional because the types 'QcPlanTrigger[]' and 'string' have no overlap.
+src/components/quality/QcPlanDrawer.tsx(114,19): error TS2367: This comparison appears to be unintentional because the types 'QcPlanTrigger[]' and 'string' have no overlap.
+src/components/quality/QcPlanDrawer.tsx(116,19): error TS2367: This comparison appears to be unintentional because the types 'QcPlanTrigger[]' and 'string' have no overlap.
+src/components/quality/QcPlanDrawer.tsx(125,36): error TS2339: Property 'type' does not exist on type '{ sampleSize?: number | undefined; sampleMethod?: "RANDOM" | "SYSTEMATIC" | "STRATIFIED" | undefined; acceptanceCriteria?: string | undefined; }'.
+src/components/quality/QcPlanDrawer.tsx(129,40): error TS2339: Property 'type' does not exist on type '{ sampleSize?: number | undefined; sampleMethod?: "RANDOM" | "SYSTEMATIC" | "STRATIFIED" | undefined; acceptanceCriteria?: string | undefined; }'.
+src/components/quality/QcPlanDrawer.tsx(131,44): error TS2339: Property 'type' does not exist on type '{ sampleSize?: number | undefined; sampleMethod?: "RANDOM" | "SYSTEMATIC" | "STRATIFIED" | undefined; acceptanceCriteria?: string | undefined; }'.
+src/components/quality/QcPlanDrawer.tsx(137,36): error TS2339: Property 'acceptanceLevel' does not exist on type '{ sampleSize?: number | undefined; sampleMethod?: "RANDOM" | "SYSTEMATIC" | "STRATIFIED" | undefined; acceptanceCriteria?: string | undefined; }'.
+src/components/quality/QcPlanDrawer.tsx(140,48): error TS2339: Property 'acceptanceLevel' does not exist on type '{ sampleSize?: number | undefined; sampleMethod?: "RANDOM" | "SYSTEMATIC" | "STRATIFIED" | undefined; acceptanceCriteria?: string | undefined; }'.
+src/components/quality/QcPlanDrawer.tsx(306,60): error TS2339: Property 'allTestsPass' does not exist on type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; }[]'.
+src/components/quality/QcPlanDrawer.tsx(309,70): error TS2339: Property 'trustedSuppliers' does not exist on type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; }[]'.
+src/components/quality/QcPlanDrawer.tsx(313,63): error TS2339: Property 'trustedSuppliers' does not exist on type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; }[]'.
+src/components/quality/QcPlanDrawer.tsx(321,56): error TS2339: Property 'maxLotSize' does not exist on type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; }[]'.
+src/components/quality/QcPlanDrawer.tsx(325,62): error TS2339: Property 'maxLotSize' does not exist on type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; }[]'.
+src/components/quality/QcPlanEditorDrawer.tsx(24,62): error TS2322: Type 'string' is not assignable to type '("RECEIPT" | "PRODUCTION")[]'.
+src/components/quality/QcPlanEditorDrawer.tsx(24,73): error TS2322: Type 'string' is not assignable to type '("RECEIPT" | "PRODUCTION")[]'.
+src/components/quality/QcPlanEditorDrawer.tsx(24,87): error TS2322: Type 'string' is not assignable to type '("RECEIPT" | "PRODUCTION")[]'.
+src/components/quality/QcPlanEditorDrawer.tsx(38,3): error TS2322: Type 'string' is not assignable to type '("RECEIPT" | "PRODUCTION")[]'.
+src/components/quality/QcPlanEditorDrawer.tsx(46,7): error TS2353: Object literal may only specify known properties, and 'allTestsPass' does not exist in type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; allTestsPass?: boolean | undefined; trustedSuppliers?: string[] | undefined; maxLotSize?: number | undefined; }[]'.
+src/components/quality/QcPlanEditorDrawer.tsx(165,17): error TS2322: Type '{ enabled: true; conditions: { allTestsPass: any; trustedSuppliers: any; maxLotSize: any; }; } | undefined' is not assignable to type '{ enabled: boolean; conditions?: { type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | ... 1 more ... | "AUTO_REJECT"; allTestsPass?: boolean | undefined; trustedSuppliers?: string[] | undefined; maxLotSize?...'.
+  Type '{ enabled: true; conditions: { allTestsPass: any; trustedSuppliers: any; maxLotSize: any; }; }' is not assignable to type '{ enabled: boolean; conditions?: { type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | ... 1 more ... | "AUTO_REJECT"; allTestsPass?: boolean | undefined; trustedSuppliers?: string[] | undefined; maxLotSize?...'.
+    Types of property 'conditions' are incompatible.
+      Object literal may only specify known properties, and 'allTestsPass' does not exist in type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; allTestsPass?: boolean | undefined; trustedSuppliers?: string[] | undefined; maxLotSize?: number | undefined; }[]'.
+src/components/quality/QcPlanEditorDrawer.tsx(165,66): error TS2339: Property 'allTestsPass' does not exist on type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; allTestsPass?: boolean | undefined; trustedSuppliers?: string[] | undefined; maxLotSize?: number | undefined; }[]'.
+src/components/quality/QcPlanEditorDrawer.tsx(166,70): error TS2339: Property 'trustedSuppliers' does not exist on type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; allTestsPass?: boolean | undefined; trustedSuppliers?: string[] | undefined; maxLotSize?: number | undefined; }[]'.
+src/components/quality/QcPlanEditorDrawer.tsx(167,64): error TS2339: Property 'maxLotSize' does not exist on type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; allTestsPass?: boolean | undefined; trustedSuppliers?: string[] | undefined; maxLotSize?: number | undefined; }[]'.
+src/components/quality/QcPlanEditorDrawer.tsx(298,32): error TS2352: Conversion of type 'string' to type '("RECEIPT" | "PRODUCTION")[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/components/quality/QcPlanEditorDrawer.tsx(303,27): error TS2322: Type '("RECEIPT" | "PRODUCTION")[]' is not assignable to type 'Key | null | undefined'.
+src/components/quality/QcPlanEditorDrawer.tsx(304,22): error TS2367: This comparison appears to be unintentional because the types '("RECEIPT" | "PRODUCTION")[]' and 'string' have no overlap.
+src/components/quality/QcPlanEditorDrawer.tsx(306,25): error TS2367: This comparison appears to be unintentional because the types '("RECEIPT" | "PRODUCTION")[]' and 'string' have no overlap.
+src/components/quality/QcPlanEditorDrawer.tsx(697,59): error TS2339: Property 'allTestsPass' does not exist on type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; allTestsPass?: boolean | undefined; trustedSuppliers?: string[] | undefined; maxLotSize?: number | undefined; }[]'.
+src/components/quality/QcPlanEditorDrawer.tsx(723,59): error TS2339: Property 'maxLotSize' does not exist on type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; allTestsPass?: boolean | undefined; trustedSuppliers?: string[] | undefined; maxLotSize?: number | undefined; }[]'.
+src/components/quality/QcPlanEditorDrawer.tsx(746,58): error TS2339: Property 'trustedSuppliers' does not exist on type '{ type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | "FLAG_FOR_REVIEW" | "AUTO_REJECT"; allTestsPass?: boolean | undefined; trustedSuppliers?: string[] | undefined; maxLotSize?: number | undefined; }[]'.
+src/components/quality/ReleaseLotDrawer.tsx(280,91): error TS2322: Type 'QcTest' is not assignable to type '{ parameterId: string; parameterName: string; value: string | number; result: "PASS" | "FAIL" | "NA"; inSpec: boolean; spec?: { min?: number | undefined; max?: number | undefined; target?: number | undefined; unit?: string | undefined; } | undefined; }'.
+  Types of property 'parameterName' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/domain/inventory.helpers.ts(29,116): error TS2551: Property 'lotNumber' does not exist on type 'OnHandView'. Did you mean 'lotNumbers'?
+src/domain/inventory.helpers.ts(39,15): error TS2551: Property 'lotNumber' does not exist on type 'OnHandView'. Did you mean 'lotNumbers'?
+src/domain/inventory.helpers.ts(43,38): error TS2551: Property 'lotNumber' does not exist on type 'OnHandView'. Did you mean 'lotNumbers'?
+src/domain/inventory.helpers.ts(60,48): error TS2352: Conversion of type '{ id: string; itemId: string; lotNumber: string; uom: Uom; qty: number; fromLocationId: string; reason: string; occurredAt: string; createdAt: string; ref: { prodOrderId: string; }; }' to type 'StockMove' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; itemId: string; lotNumber: string; uom: Uom; qty: number; fromLocationId: string; reason: string; occurredAt: string; createdAt: string; ref: { prodOrderId: string; }; }' is missing the following properties from type 'StockMove': sku, lotCode
+src/domain/qc-plan-helpers.ts(96,48): error TS2339: Property 'conditions' does not exist on type '{ enabled: boolean; conditions?: { type: "ALL_PARAMS_IN_SPEC" | "SPECIFIC_PARAMS" | "VALUE_THRESHOLD"; parameterIds?: string[] | undefined; threshold?: number | undefined; action: "AUTO_APPROVE" | ... 1 more ... | "AUTO_REJECT"; }[] | undefined; } | undefined'.
+src/features/admin/components/SystemConfigEditor.tsx(430,41): error TS2339: Property 'color' does not exist on type '{ id: string; name: string; icon: string; className: string; enabled: boolean; validations?: { requiresAccount?: boolean | undefined; requiresOrder?: boolean | undefined; requiresEvent?: boolean | undefined; requiresContactPerson?: boolean | undefined; } | undefined; order: number; }'.
+src/features/admin/components/SystemConfigEditor.tsx(431,45): error TS2339: Property 'color' does not exist on type '{ id: string; name: string; icon: string; className: string; enabled: boolean; validations?: { requiresAccount?: boolean | undefined; requiresOrder?: boolean | undefined; requiresEvent?: boolean | undefined; requiresContactPerson?: boolean | undefined; } | undefined; order: number; }'.
+src/features/sales/pipeline/pipeline.service.ts(258,21): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/lib/onhand_view.ts(33,10): error TS2352: Conversion of type '({ id: string; itemId: string | undefined; sku: string | undefined; lotNumber: string; locationId: string; qty: number; uom: any; qcStatus: QcStatus; expiryAt: string | null; reservedQty: number; updatedAt: string | undefined; } | null)[]' to type 'OnHandView[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; itemId: string | undefined; sku: string | undefined; lotNumber: string; locationId: string; qty: number; uom: any; qcStatus: QcStatus; expiryAt: string | null; reservedQty: number; updatedAt: string | undefined; } | null' is not comparable to type 'OnHandView'.
+    Type '{ id: string; itemId: string | undefined; sku: string | undefined; lotNumber: string; locationId: string; qty: number; uom: any; qcStatus: QcStatus; expiryAt: string | null; reservedQty: number; updatedAt: string | undefined; }' is missing the following properties from type 'OnHandView': lotCode, category, createdAt
+src/server/actions/accounts.ts(607,39): error TS7006: Parameter 'doc' implicitly has an 'any' type.
+src/server/actions/alerts.actions.ts(157,38): error TS7006: Parameter 'doc' implicitly has an 'any' type.
+src/server/actions/alerts.actions.ts(195,30): error TS7006: Parameter 'doc' implicitly has an 'any' type.
+src/server/actions/orders-data.ts(280,44): error TS2304: Cannot find name 'Order'.
+src/server/actions/production.actions.ts(177,52): error TS2339: Property 'id' does not exist on type '{ uom: Uom; sku: string; lotCode: string; qty: number; fromLocationId: string; }'.
+src/server/actions/production.actions.ts(189,9): error TS2353: Object literal may only specify known properties, and 'lotCode' does not exist in type 'Lot'.
+src/server/actions/production.actions.ts(231,9): error TS2353: Object literal may only specify known properties, and 'lotCode' does not exist in type '{ prodOrderId: string; lotNumber: string; itemId: string; itemName: string; quantity: number; uom: string; userId?: string | undefined; data?: Record<string, any> | undefined; }'.
+src/server/actions/production.actions.ts(258,48): error TS2304: Cannot find name 'LotService'.
+src/server/actions/production.actions.ts(316,46): error TS2339: Property 'id' does not exist on type '{ uom: Uom; sku: string; qty: number; toLocationId: string; lotCode?: string | undefined; }'.
+src/server/actions/quality-helpers.ts(112,60): error TS2339: Property 'sku' does not exist on type '{ lotCode: string; itemId: string; decision: string; reason?: string | undefined; conditions?: string[] | undefined; }'.
+src/server/actions/quality-stats.ts(209,27): error TS2339: Property 'lotCode' does not exist on type 'Lot'.
+src/server/actions/quality-stats.ts(447,25): error TS2339: Property 'lotCode' does not exist on type 'Lot'.
+src/server/actions/quality.actions.ts(84,21): error TS2339: Property 'lotCode' does not exist on type 'QualityReleaseFormData'.
+src/server/actions/quality.actions.ts(122,51): error TS2339: Property 'lotCode' does not exist on type 'QualityReleaseFormData'.
+src/server/actions/quality.actions.ts(128,29): error TS2339: Property 'lotCode' does not exist on type 'QualityReleaseFormData'.
+src/server/actions/quality.actions.ts(190,38): error TS2339: Property 'lotCode' does not exist on type 'QualityReleaseFormData'.
+src/server/actions/quality.actions.ts(214,13): error TS2353: Object literal may only specify known properties, and 'lotCode' does not exist in type 'QcTest'.
+src/server/actions/quality.actions.ts(214,27): error TS2339: Property 'lotCode' does not exist on type 'QualityReleaseFormData'.
+src/server/actions/quality.actions.ts(236,7): error TS2353: Object literal may only specify known properties, and 'lotCode' does not exist in type '{ lotNumber: string; decision: "HOLD" | "REJECTED" | "APPROVED"; reason?: string | undefined; conditions?: string[] | undefined; userId?: string | undefined; data?: Record<string, any> | undefined; }'.
+src/server/actions/quality.actions.ts(236,21): error TS2339: Property 'lotCode' does not exist on type 'QualityReleaseFormData'.
+src/server/actions/quality.actions.ts(258,14): error TS2339: Property 'lotCode' does not exist on type 'QualityReleaseFormData'.
+src/server/actions/quality.actions.ts(268,23): error TS2339: Property 'lotCode' does not exist on type 'QualityReleaseFormData'.
+src/server/actions/quality.actions.ts(278,14): error TS2339: Property 'lotCode' does not exist on type 'QualityReleaseFormData'.
+src/server/actions/quality.actions.ts(290,25): error TS2339: Property 'lotCode' does not exist on type 'QualityReleaseFormData'.
+src/server/actions/quality.actions.ts(301,14): error TS2339: Property 'lotCode' does not exist on type 'QualityReleaseFormData'.
+src/server/actions/quality.actions.ts(372,11): error TS2322: Type '{ id: string; lotCode: any; sku: string; itemId: string; itemName: string; category: string; supplier: string; receptionDate: Date; qcStatus: QcStatus; qcPlanId: string | undefined; ... 4 more ...; requiresAnalysis: boolean; }[]' is not assignable to type 'LotReleaseTableRow[]'.
+  Property 'lotNumber' is missing in type '{ id: string; lotCode: any; sku: string; itemId: string; itemName: string; category: string; supplier: string; receptionDate: Date; qcStatus: QcStatus; qcPlanId: string | undefined; ... 4 more ...; requiresAnalysis: boolean; }' but required in type 'LotReleaseTableRow'.
+src/server/actions/quality.actions.ts(394,22): error TS2339: Property 'lotCode' does not exist on type 'Lot'.
+src/server/actions/quality.actions.ts(504,11): error TS2322: Type '{ id: any; lotCode: any; itemName: any; decision: any; decisionAt: Date; reviewedBy: any; reviewedByName: any; reviewDuration: any; testsCount: any; testsPassedCount: any; passRate: number; }[]' is not assignable to type 'QualityReleaseTableRow[]'.
+  Property 'lotNumber' is missing in type '{ id: any; lotCode: any; itemName: any; decision: any; decisionAt: Date; reviewedBy: any; reviewedByName: any; reviewDuration: any; testsCount: any; testsPassedCount: any; passRate: number; }' but required in type 'QualityReleaseTableRow'.
+src/server/actions/quality.data.ts(34,5): error TS2353: Object literal may only specify known properties, and 'lotCode' does not exist in type 'Lot'.
+src/server/actions/quality.data.ts(34,19): error TS2339: Property 'lotCode' does not exist on type 'Lot'.
+src/server/actions/quality.data.ts(127,5): error TS2353: Object literal may only specify known properties, and 'createdAt' does not exist in type 'Item'.
+src/server/gemini/analyzers/production-analyzer.ts(465,22): error TS2339: Property 'lotCode' does not exist on type 'ProductionOutput'.
+src/server/gemini/analyzers/production-analyzer.ts(466,37): error TS2339: Property 'lotCode' does not exist on type 'ProductionOutput'.
+src/server/gemini/analyzers/production-analyzer.ts(473,47): error TS2339: Property 'lotCode' does not exist on type 'QcTest'.
+src/server/gemini/analyzers/quality-analyzer.ts(520,20): error TS2339: Property 'lotCode' does not exist on type 'Lot'.
+src/server/gemini/analyzers/quality-analyzer.ts(563,20): error TS2339: Property 'lotCode' does not exist on type 'Lot'.
+src/server/gemini/analyzers/quality-analyzer.ts(702,36): error TS2339: Property 'lotCode' does not exist on type 'Lot'.
+src/server/gemini/analyzers/quality-analyzer.ts(731,36): error TS2339: Property 'lotCode' does not exist on type 'Lot'.
+src/server/gemini/analyzers/quality-analyzer.ts(768,47): error TS2339: Property 'lotCode' does not exist on type 'Lot'.
+src/server/integrations/integration-jobs.ts(166,37): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/server/integrations/integration-logger.ts(68,12): error TS2345: Argument of type 'IntegrationLogEntry' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'IntegrationLogEntry'.
+src/server/integrations/integration-logger.ts(73,12): error TS2345: Argument of type 'IntegrationLogEntry' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'IntegrationLogEntry'.
+src/server/integrations/shopify/import-order.ts(2,10): error TS2305: Module '"./client"' has no exported member 'getOrderById'.
+src/services/lots/searchLots.ts(77,20): error TS2551: Property 'lotNumber' does not exist on type 'OnHandView'. Did you mean 'lotNumbers'?
+src/services/lots/searchLots.ts(77,46): error TS2551: Property 'lotNumber' does not exist on type 'OnHandView'. Did you mean 'lotNumbers'?
+src/services/lots/searchLots.ts(78,27): error TS2551: Property 'lotNumber' does not exist on type 'OnHandView'. Did you mean 'lotNumbers'?
+src/services/lots/searchLots.ts(78,60): error TS2551: Property 'lotNumber' does not exist on type 'OnHandView'. Did you mean 'lotNumbers'?
+src/services/lots/searchLots.ts(81,20): error TS2551: Property 'lotNumber' does not exist on type 'OnHandView'. Did you mean 'lotNumbers'?
+tests/gmail/document-analyzer.test.ts(84,35): error TS2339: Property 'lotNumber' does not exist on type '{ documentNumber?: string | undefined; date?: string | undefined; amount?: number | undefined; currency?: string | undefined; supplier?: string | undefined; customer?: string | undefined; items?: string[] | undefined; validUntil?: string | undefined; lotCode?: string | undefined; }'.
+tests/gmail/document-analyzer.test.ts(230,35): error TS2339: Property 'lotNumber' does not exist on type '{ documentNumber?: string | undefined; date?: string | undefined; amount?: number | undefined; currency?: string | undefined; supplier?: string | undefined; customer?: string | undefined; items?: string[] | undefined; validUntil?: string | undefined; lotCode?: string | undefined; }'.
+tests/orders/placeOrder.test.ts(89,5): error TS2561: Object literal may only specify known properties, but 'lotNumber' does not exist in type 'OnHandView'. Did you mean to write 'lotNumbers'?
+tests/server-actions.test.ts(3,34): error TS2307: Cannot find module '@/app/(app)/warehouse/logistics/actions' or its corresponding type declarations.
+tests/server-actions.test.ts(117,21): error TS2339: Property 'financeLinkId' does not exist on type '{ ok: boolean; message: string; }'.
+tests/ssot-v2/onhand.invariants.test.ts(2,40): error TS2307: Cannot find module '@jest/globals' or its corresponding type declarations.

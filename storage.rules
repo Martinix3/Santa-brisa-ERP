@@ -1,0 +1,59 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules for Santa Brisa ERP
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check file size (10MB max)
+    function isValidSize() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+    
+    // Helper function to check if file is image or PDF
+    function isValidFileType() {
+      return request.resource.contentType.matches('image/.*') 
+          || request.resource.contentType == 'application/pdf';
+    }
+    
+    // Goods Receipts: Any authenticated user can upload
+    match /goods-receipts/{year}/{month}/{receiptNumber}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() 
+                   && isValidSize() 
+                   && isValidFileType();
+    }
+    
+    // Receipts (manual adjustments/quick receipts): Any authenticated user can upload
+    match /receipts/{receiptId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() 
+                   && isValidSize() 
+                   && isValidFileType();
+    }
+    
+    // Marketing uploads: Any authenticated user can upload
+    match /marketing/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() 
+                   && isValidSize();
+    }
+    
+    // User uploads: Any authenticated user can upload to their own folder
+    match /users/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() 
+                   && request.auth.uid == userId
+                   && isValidSize();
+    }
+    
+    // Default: Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

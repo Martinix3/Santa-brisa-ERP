@@ -1,0 +1,130 @@
+/* src/styles/tokens.css */
+@reference "tailwindcss";
+
+:root {
+  /* ==================================
+     🎨 PALETA DE COLORES - BASE
+     Valores HSL sin hsl() para ser componibles.
+     ================================== */
+  
+  /* Paleta de Marca Santa Brisa */
+  --sb-yellow: 45 90% 67%;   /* #F7D15F */
+  --sb-copper: 20 66% 54%;   /* #D7713E */
+  --sb-aqua: 181 40% 75%;    /* #A7D8D9 */
+  --sb-green: 181 19% 47%;   /* #618E8F */
+
+  /* Paleta de UI - Neutros Refinados (SB Pro) */
+  --background: 240 3% 97%;      /* Era 0 0% 100% - ahora 97% con tinte azul sutil */
+  --foreground: 240 6% 14%;      /* antes: 240 10% 4% - menos agresivo */
+  --card: 0 0% 99%;              /* Era 100% - ahora 99% */
+  --card-foreground: 240 6% 14%; /* igual que foreground */
+  --secondary: 240 5% 94%;       /* Era 96% - ahora 94% */
+  --secondary-foreground: 240 5% 28%; /* +suave, mejor legibilidad */
+  --muted: 240 4.8% 93%;         /* Era 95.9% - ahora 93% */
+  --muted-foreground: 240 3% 40%; /* menos gris frío, más humano */
+  --border: 240 5.9% 88%;        /* Era 90% - ahora 88% */
+  --input: 240 5.9% 90%;
+  --ring: 240 4.9% 83.9%;
+  
+  /* ==================================
+     🎨 PALETA DE COLORES - SEMÁNTICOS
+     Asignación de significado a la paleta base.
+     ================================== */
+  
+  /* Semánticos de UI */
+  --primary: var(--sb-yellow);
+  --primary-foreground: 30 100% 4%;
+  --accent: var(--sb-copper);
+  --accent-foreground: 0 0% 100%;
+  
+  /* Semánticos de Estado (Status) */
+  --success: 142 76% 36%;
+  --success-foreground: 0 0% 98%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --info: 199 89% 48%;
+  --info-foreground: 0 0% 100%;
+
+  /* Tokens semánticos para departamentos (derivados de los RGB originales) */
+  --dept-personal: var(--sb-yellow);
+  --dept-ventas: var(--sb-copper);
+  --dept-marketing: 181 40% 75%;
+  --dept-logistica: 28 36% 44%;
+  --dept-produccion: var(--sb-green);
+  --dept-calidad: 228 35% 60%;
+  --dept-finanzas: 48 88% 54%;
+  --dept-admin: 240 2% 60%;
+
+  /* ==================================
+     📐 TAMAÑO Y ESPACIADO
+     ================================== */
+  --radius: 14px;
+  --radius-xl: 24px;
+
+  /* ==================================
+     🎬 MOTION & ANIMACIÓN
+     ================================== */
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-slow: 350ms;
+  --easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --easing-entrance: cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* ==================================
+     📚 Z-INDEX SCALE
+     ================================== */
+  --z-base: 1;
+  --z-sticky: 10;
+  --z-overlay: 40;
+  --z-dialog: 50;
+  --z-toast: 60;
+}
+
+/* ==================================
+   🚀 MAPEO A TAILWIND THEME
+   ================================== */
+@import "tailwindcss/theme" layer(theme);
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+
+  --radius: var(--radius);
+}
+
+/* ==================================
+   🎬 KEYFRAMES GLOBALES
+   ================================== */
+@layer utilities {
+  @keyframes sb-fade-in { from{opacity:0} to{opacity:1} }
+  @keyframes sb-fade-out{ from{opacity:1} to{opacity:0} }
+  @keyframes sb-pop { from{transform:scale(.96);opacity:.7} to{transform:scale(1);opacity:1} }
+  @keyframes sb-slide-up { from{transform:translateY(100%);opacity:.6} to{transform:translateY(0);opacity:1} }
+  @keyframes sb-slide-down { from { transform: translateY(0); } to { transform: translateY(100%); } }
+  @keyframes sb-slide-in { from{transform:translateX(100%);opacity:.6} to{transform:translateX(0);opacity:1} }
+  @keyframes sb-slide-out { from { transform: translateX(0); } to { transform: translateX(100%); } }
+}
